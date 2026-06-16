@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useReducer } from 'react';
 import type { ReactNode } from 'react';
-import bcryptjs from 'bcryptjs';
 import type {
   Empresa, Establecimiento, PuntoEmision, Rol, Empleado, Usuario,
   Cliente, DatosFiscales, TipoImpuesto, TipoRetencion, TipoMoneda,
@@ -144,8 +143,8 @@ const initialState: AppState = {
     { id: ID.emp2, nombre: 'Ana', apellido: 'Rivera', correo: 'ana.rivera@techonduras.hn', cargo: 'Vendedora', activo: true },
   ],
   usuarios: [
-    { id: ID.usr1, empleadoId: ID.emp1, username: 'admin', rolId: ID.rol1, activo: true, passwordHash: bcryptjs.hashSync('Admin1234!', 10), intentosFallidos: 0 },
-    { id: ID.usr2, empleadoId: ID.emp2, username: 'vendedor', rolId: ID.rol2, activo: true, passwordHash: bcryptjs.hashSync('Vendedor1234!', 10), intentosFallidos: 0 },
+    { id: ID.usr1, empleadoId: ID.emp1, username: 'admin', rolId: ID.rol1, activo: true, passwordHash: '$2b$10$9xhPWmbXgOLb9U0.oAFskeGlAnoKjKNji8IvR12e.bFRRoJS1BnOi', intentosFallidos: 0 },
+    { id: ID.usr2, empleadoId: ID.emp2, username: 'vendedor', rolId: ID.rol2, activo: true, passwordHash: '$2b$10$QN3XREgfo3ug.HnOJ4IUEOK8QVNARKb5Y23y3sHB9ylVlD62oOuE6', intentosFallidos: 0 },
   ],
   clientes: [
     { id: ID.cli1, nombre: 'Supermercados El Ahorro S.A.', rtn: '08011987123456', dni: '', correo: 'compras@elahorro.hn', telefono: '2225-1234', direccion: 'Col. Kennedy, Tegucigalpa', condicionPago: 'credito', limitCredito: 50000, exentoImpuesto: false, activo: true },
