@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { StoreProvider, useStore } from './store';
 import { ToastProvider } from './components/ui/Toast';
+import { AuthProvider, useAuth } from './auth/AuthContext';
+import LoginPage from './auth/LoginPage';
 import Sidebar from './components/layout/Sidebar';
 import Topbar from './components/layout/Topbar';
 
@@ -28,6 +30,7 @@ import FacturasPage from './modules/documentos/Facturas';
 
 function AppContent() {
   const { state } = useStore();
+  const { sesion, usuarioActual } = useAuth();
   const [currentPage, setCurrentPage] = useState('facturas');
 
   // Apply dark class to <html>
@@ -39,6 +42,10 @@ function AppContent() {
       html.classList.remove('dark');
     }
   }, [state.temaOscuro]);
+
+  if (!sesion) {
+    return <LoginPage />;
+  }
 
   const renderPage = () => {
     switch (currentPage) {
@@ -64,7 +71,7 @@ function AppContent() {
     <div className="flex h-screen bg-gray-50 dark:bg-slate-900 overflow-hidden">
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar currentPage={currentPage} />
+        <Topbar currentPage={currentPage} usuarioActual={usuarioActual} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {renderPage()}
         </main>
@@ -77,7 +84,9 @@ export default function App() {
   return (
     <StoreProvider>
       <ToastProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </ToastProvider>
     </StoreProvider>
   );

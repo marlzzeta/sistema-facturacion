@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useReducer } from 'react';
 import type { ReactNode } from 'react';
+import bcryptjs from 'bcryptjs';
 import type {
   Empresa, Establecimiento, PuntoEmision, Rol, Empleado, Usuario,
   Cliente, DatosFiscales, TipoImpuesto, TipoRetencion, TipoMoneda,
-  FormaPago, Articulo, Servicio, Factura
+  FormaPago, Articulo, Servicio, Factura, Sesion
 } from '../types';
 
 const uuid = () => Math.random().toString(36).slice(2, 10);
@@ -44,6 +45,7 @@ export interface AppState {
   facturas: Factura[];
   temaOscuro: boolean;
   usuarioActual: Usuario | null;
+  sesion: Sesion | null;
 }
 
 // ── Actions ──────────────────────────────────────────────────────────────────
@@ -108,7 +110,8 @@ type Action =
   | { type: 'ANULAR_FACTURA'; payload: string }
   // UI
   | { type: 'SET_TEMA'; payload: boolean }
-  | { type: 'SET_USUARIO'; payload: Usuario | null };
+  | { type: 'SET_USUARIO'; payload: Usuario | null }
+  | { type: 'SET_SESION'; payload: Sesion | null };
 
 // ── Initial State ────────────────────────────────────────────────────────────
 const initialState: AppState = {
@@ -141,8 +144,8 @@ const initialState: AppState = {
     { id: ID.emp2, nombre: 'Ana', apellido: 'Rivera', correo: 'ana.rivera@techonduras.hn', cargo: 'Vendedora', activo: true },
   ],
   usuarios: [
-    { id: ID.usr1, empleadoId: ID.emp1, username: 'cmendoza', rolId: ID.rol1, activo: true },
-    { id: ID.usr2, empleadoId: ID.emp2, username: 'arivera', rolId: ID.rol2, activo: true },
+    { id: ID.usr1, empleadoId: ID.emp1, username: 'admin', rolId: ID.rol1, activo: true, passwordHash: bcryptjs.hashSync('Admin1234!', 10), intentosFallidos: 0 },
+    { id: ID.usr2, empleadoId: ID.emp2, username: 'vendedor', rolId: ID.rol2, activo: true, passwordHash: bcryptjs.hashSync('Vendedor1234!', 10), intentosFallidos: 0 },
   ],
   clientes: [
     { id: ID.cli1, nombre: 'Supermercados El Ahorro S.A.', rtn: '08011987123456', dni: '', correo: 'compras@elahorro.hn', telefono: '2225-1234', direccion: 'Col. Kennedy, Tegucigalpa', condicionPago: 'credito', limitCredito: 50000, exentoImpuesto: false, activo: true },
@@ -183,7 +186,8 @@ const initialState: AppState = {
   ],
   facturas: [],
   temaOscuro: false,
-  usuarioActual: { id: ID.usr1, empleadoId: ID.emp1, username: 'cmendoza', rolId: ID.rol1, activo: true },
+  usuarioActual: null,
+  sesion: null,
 };
 
 // ── Reducer ──────────────────────────────────────────────────────────────────
@@ -272,6 +276,7 @@ function reducer(state: AppState, action: Action): AppState {
     // UI
     case 'SET_TEMA': return { ...state, temaOscuro: action.payload };
     case 'SET_USUARIO': return { ...state, usuarioActual: action.payload };
+    case 'SET_SESION': return { ...state, sesion: action.payload };
     default: return state;
   }
 }

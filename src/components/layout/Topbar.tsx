@@ -1,8 +1,12 @@
 import { Moon, Sun, LogOut, User } from 'lucide-react';
 import { useStore } from '../../store';
+import { useAuth } from '../../auth/AuthContext';
+import SessionBar from '../../auth/SessionBar';
+import type { Usuario } from '../../types';
 
 interface TopbarProps {
   currentPage: string;
+  usuarioActual?: Usuario | null;
 }
 
 const pageTitles: Record<string, string> = {
@@ -22,15 +26,21 @@ const pageTitles: Record<string, string> = {
   facturas: 'Facturas',
 };
 
-export default function Topbar({ currentPage }: TopbarProps) {
+export default function Topbar({ currentPage, usuarioActual: usuarioProp }: TopbarProps) {
   const { state, dispatch } = useStore();
-  const { temaOscuro, usuarioActual, empleados } = state;
+  const auth = useAuth();
+  const { temaOscuro, empleados } = state;
 
+  // Prefer prop passed from AppContent (comes from AuthContext), fallback to store
+  const usuarioActual = usuarioProp ?? state.usuarioActual;
   const empleado = empleados.find(e => e.id === usuarioActual?.empleadoId);
-  const displayName = empleado ? `${empleado.nombre} ${empleado.apellido}` : usuarioActual?.username ?? 'Usuario';
+  const displayName = empleado
+    ? `${empleado.nombre} ${empleado.apellido}`
+    : usuarioActual?.username ?? 'Usuario';
+  const rolNombre = state.roles.find(r => r.id === usuarioActual?.rolId)?.nombre ?? '';
 
   const toggleTema = () => dispatch({ type: 'SET_TEMA', payload: !temaOscuro });
-  const logout = () => dispatch({ type: 'SET_USUARIO', payload: null });
+  const logout = () => auth.logout();
 
   return (
     <header className="sticky top-0 z-30 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-4 md:px-6 h-14 flex items-center justify-between shadow-sm">
@@ -41,6 +51,9 @@ export default function Topbar({ currentPage }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Session countdown */}
+        <SessionBar />
+
         {/* Dark mode toggle */}
         <button
           onClick={toggleTema}
@@ -57,7 +70,7 @@ export default function Topbar({ currentPage }: TopbarProps) {
           </div>
           <div className="text-right">
             <p className="text-xs font-medium text-gray-800 dark:text-slate-200 leading-tight">{displayName}</p>
-            <p className="text-xs text-gray-400 dark:text-slate-500 leading-tight">{usuarioActual?.username}</p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 leading-tight">{rolNombre || usuarioActual?.username}</p>
           </div>
         </div>
 

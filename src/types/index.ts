@@ -50,6 +50,18 @@ export interface Usuario {
   username: string;
   rolId: string;
   activo: boolean;
+  passwordHash: string;
+  ultimoAcceso?: string;
+  intentosFallidos?: number;
+  bloqueadoHasta?: string;
+}
+
+export interface Sesion {
+  usuarioId: string;
+  token: string;
+  creadaEn: string;
+  expiraEn: string;
+  ultimaActividad: string;
 }
 
 export interface Cliente {
