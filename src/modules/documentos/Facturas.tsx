@@ -63,9 +63,12 @@ function PrintModal({ factura, onClose }: { factura: Factura; onClose: () => voi
         `}</style>
         {/* Header */}
         <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">FACTURA</h1>
-            <p className="text-xs text-gray-500 mt-1">Documento Fiscal</p>
+          <div className="flex flex-col gap-1">
+            {empresa.logo
+              ? <img src={empresa.logo} alt="Logo" style={{ height: '64px', width: 'auto', maxWidth: '180px', objectFit: 'contain' }} />
+              : <h1 className="text-2xl font-bold text-gray-900">FACTURA</h1>
+            }
+            <p className="text-xs text-gray-500">Documento Fiscal</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-bold">{empresa.razonSocial}</p>

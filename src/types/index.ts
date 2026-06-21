@@ -7,6 +7,7 @@ export interface Empresa {
   telefono: string;
   resolucionFacturacion: string;
   pieFactura: string;
+  logo?: string; // base64 data URL
 }
 
 export interface Establecimiento {
