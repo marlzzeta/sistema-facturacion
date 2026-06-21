@@ -15,6 +15,41 @@ import Badge from '../../components/ui/Badge';
 import type { Factura, LineaFactura, PuntoEmision } from '../../types';
 import { fmtMoney, fmtNum } from '../../utils/format';
 
+// ── PrecioInput: text input that shows formatted number, edits as plain number ─
+function PrecioInput({ sym, value, onChange }: { sym: string; value: number; onChange: (v: number) => void }) {
+  const [display, setDisplay] = React.useState(fmtNum(value));
+  const [focused, setFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!focused) setDisplay(fmtNum(value));
+  }, [value, focused]);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Precio ({sym})</label>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={focused ? display : fmtNum(value)}
+        onFocus={() => { setFocused(true); setDisplay(value === 0 ? '' : String(value)); }}
+        onChange={e => {
+          const raw = e.target.value.replace(/[^0-9.]/g, '');
+          setDisplay(raw);
+          const num = parseFloat(raw);
+          if (!isNaN(num)) onChange(num);
+        }}
+        onBlur={() => {
+          setFocused(false);
+          const num = parseFloat(display.replace(/,/g, ''));
+          if (!isNaN(num)) { onChange(num); setDisplay(fmtNum(num)); }
+          else { onChange(0); setDisplay(fmtNum(0)); }
+        }}
+        className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  );
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const today = () => new Date().toISOString().split('T')[0];
 const isVigente = (fecha: string) => new Date(fecha) >= new Date();
@@ -545,8 +580,7 @@ export default function FacturasPage() {
                     </Input>
                     <Input as="input" type="number" label="Cantidad" value={lineForm.cantidad} min={1}
                       onChange={e => setLineForm(p => ({ ...p, cantidad: Number(e.target.value) }))} />
-                    <Input as="input" type="number" label={`Precio (${sym})`} value={lineForm.precio} min={0} step={0.01}
-                      onChange={e => setLineForm(p => ({ ...p, precio: Number(e.target.value) }))} />
+                    <PrecioInput sym={sym} value={lineForm.precio} onChange={v => setLineForm(p => ({ ...p, precio: v }))} />
                     <Input as="input" type="number" label="Descuento (%)" value={lineForm.descuento} min={0} max={100}
                       onChange={e => setLineForm(p => ({ ...p, descuento: Number(e.target.value) }))} />
 
