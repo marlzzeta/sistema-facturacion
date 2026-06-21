@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   Plus, Eye, Printer, Ban, ChevronLeft, ChevronRight,
-  Search, Trash2, AlertCircle, CheckCircle
+  Search, Trash2, AlertCircle, CheckCircle, X
 } from 'lucide-react';
 import { useStore, uuid } from '../../store';
 import { useToast } from '../../components/ui/Toast';
@@ -14,6 +14,107 @@ import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import type { Factura, LineaFactura, PuntoEmision } from '../../types';
 import { fmtMoney, fmtNum } from '../../utils/format';
+
+// ── ItemSearchInput: searchable combobox for articles and services ────────────
+function ItemSearchInput({
+  allItems, articulos, value, onChange,
+}: {
+  allItems: { id: string; codigo: string; descripcion: string; precio: number; tipo: string }[];
+  articulos: { id: string; codigo: string; descripcion: string; stock: number }[];
+  value: string;
+  onChange: (id: string, precio: number) => void;
+}) {
+  const [query, setQuery] = React.useState('');
+  const [open, setOpen] = React.useState(false);
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+
+  const selected = allItems.find(i => i.id === value);
+
+  const filtered = query.trim() === ''
+    ? allItems
+    : allItems.filter(i =>
+        `${i.codigo} ${i.descripcion}`.toLowerCase().includes(query.toLowerCase())
+      );
+
+  const arts = filtered.filter(i => i.tipo === 'articulo');
+  const srvs = filtered.filter(i => i.tipo === 'servicio');
+
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const select = (id: string) => {
+    const item = allItems.find(i => i.id === id);
+    if (item) { onChange(id, item.precio); setQuery(''); setOpen(false); }
+  };
+
+  const getStock = (id: string) => articulos.find(a => a.id === id)?.stock;
+
+  return (
+    <div className="col-span-2 flex flex-col gap-1" ref={wrapRef}>
+      <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Artículo / Servicio</label>
+      <div className="relative">
+        <div
+          className="flex items-center gap-2 w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm cursor-text focus-within:ring-2 focus-within:ring-blue-500"
+          onClick={() => { setOpen(true); }}
+        >
+          <Search size={14} className="text-gray-400 shrink-0" />
+          <input
+            type="text"
+            placeholder={selected ? `[${selected.codigo}] ${selected.descripcion}` : 'Buscar por código o nombre…'}
+            value={open ? query : (selected ? `[${selected.codigo}] ${selected.descripcion}` : '')}
+            onChange={e => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => { setOpen(true); setQuery(''); }}
+            className="flex-1 bg-transparent outline-none text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500"
+          />
+          {selected && (
+            <button onClick={e => { e.stopPropagation(); onChange('', 0); setQuery(''); }} className="text-gray-400 hover:text-red-500">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {open && (
+          <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+            {arts.length === 0 && srvs.length === 0 && (
+              <p className="px-4 py-3 text-sm text-gray-400">Sin resultados para "{query}"</p>
+            )}
+            {arts.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-700/50 sticky top-0">ARTÍCULOS</div>
+                {arts.map(a => {
+                  const stock = getStock(a.id);
+                  return (
+                    <button key={a.id} onMouseDown={() => select(a.id)}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 flex justify-between items-center gap-2 ${value === a.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-slate-100'}`}>
+                      <span><span className="font-mono text-xs text-gray-400 mr-2">{a.codigo}</span>{a.descripcion}</span>
+                      {stock !== undefined && <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>Stock: {stock}</span>}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+            {srvs.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-700/50 sticky top-0">SERVICIOS</div>
+                {srvs.map(s => (
+                  <button key={s.id} onMouseDown={() => select(s.id)}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2 ${value === s.id ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-slate-100'}`}>
+                    <span className="font-mono text-xs text-gray-400">{s.codigo}</span>{s.descripcion}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── PrecioInput: text input that shows formatted number, edits as plain number ─
 function PrecioInput({ sym, value, onChange }: { sym: string; value: number; onChange: (v: number) => void }) {
@@ -560,24 +661,12 @@ export default function FacturasPage() {
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800 space-y-3">
                   <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo Ítem</h4>
                   <div className="grid grid-cols-2 gap-3">
-                    <Input as="select" label="Artículo / Servicio" value={lineForm.itemId}
-                      onChange={e => {
-                        const item = allItems.find(i => i.id === e.target.value);
-                        setLineForm(p => ({ ...p, itemId: e.target.value, precio: item?.precio ?? 0 }));
-                      }}
-                      wrapperClassName="col-span-2">
-                      <option value="">— Seleccione —</option>
-                      <optgroup label="Artículos">
-                        {state.articulos.filter(a => a.activo).map(a => (
-                          <option key={a.id} value={a.id}>[{a.codigo}] {a.descripcion} — Stock: {a.stock}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Servicios">
-                        {state.servicios.filter(s => s.activo).map(s => (
-                          <option key={s.id} value={s.id}>[{s.codigo}] {s.descripcion}</option>
-                        ))}
-                      </optgroup>
-                    </Input>
+                    <ItemSearchInput
+                      allItems={allItems}
+                      articulos={state.articulos.filter(a => a.activo)}
+                      value={lineForm.itemId}
+                      onChange={(id, precio) => setLineForm(p => ({ ...p, itemId: id, precio }))}
+                    />
                     <Input as="input" type="number" label="Cantidad" value={lineForm.cantidad} min={1}
                       onChange={e => setLineForm(p => ({ ...p, cantidad: Number(e.target.value) }))} />
                     <PrecioInput sym={sym} value={lineForm.precio} onChange={v => setLineForm(p => ({ ...p, precio: v }))} />
