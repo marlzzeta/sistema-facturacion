@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Plus, Eye, Printer, Ban, ChevronLeft, ChevronRight,
   Search, Trash2, AlertCircle, CheckCircle, X
@@ -170,138 +170,208 @@ interface FormState {
   referenciaPago: string;
 }
 
-// ── Print Modal ───────────────────────────────────────────────────────────────
-function PrintModal({ factura, onClose }: { factura: Factura; onClose: () => void }) {
+// ── Invoice Sheet (ORIGINAL or COPIA) ────────────────────────────────────────
+function InvoiceSheet({ factura, tipo, emisor }: { factura: Factura; tipo: 'ORIGINAL' | 'COPIA'; emisor: string }) {
   const { state } = useStore();
-  const printRef = useRef<HTMLDivElement>(null);
-
   const empresa = state.empresa;
   const cliente = state.clientes.find(c => c.id === factura.clienteId);
   const moneda = state.tiposMoneda.find(m => m.id === factura.monedaId);
   const formaPago = state.formasPago.find(f => f.id === factura.formaPagoId);
+  const retencion = state.tiposRetencion.find(r => factura.retencionId === r.id);
+  const sym = moneda?.simbolo ?? 'L.';
+
+  // Build totals breakdown matching HMD structure
+  const imp15 = factura.impuestos.find(i => i.porcentaje === 15);
+  const imp18 = factura.impuestos.find(i => i.porcentaje === 18);
+  const exentoTotal = factura.lineas.filter(l => l.tipoImpuestoPorcentaje === 0 && !cliente?.exentoImpuesto).reduce((s, l) => s + l.subtotal, 0);
+  const exoneradoTotal = cliente?.exentoImpuesto ? factura.subtotal : 0;
+
+  // Amount in words using basic implementation (numero-a-letras may not be available)
+  const numToWords = (n: number): string => {
+    try {
+      // @ts-ignore
+      const NumerosALetras = (window as any).NumerosALetras;
+      if (NumerosALetras) return NumerosALetras(n);
+    } catch (_) { /* fallback */ }
+    const entero = Math.floor(n);
+    const cents = Math.round((n - entero) * 100);
+    return `${entero.toLocaleString('es-HN')} Y ${String(cents).padStart(2, '0')} / 100 ${moneda?.codigoIso ?? 'LEMPIRAS'}`;
+  };
+
+  const ahora = new Date();
+  const fechaImpresion = ahora.toLocaleDateString('es-HN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    + ' ' + ahora.toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  const s: React.CSSProperties = { fontFamily: 'Arial, sans-serif', fontSize: '10px', color: '#000', background: '#fff', width: '100%', boxSizing: 'border-box' as const, padding: '20px' };
+
+  return (
+    <div style={s}>
+      {/* ── HEADER ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '10px' }}>
+        {/* Left: Company info */}
+        <div>
+          {empresa.logo
+            ? <img src={empresa.logo} alt="Logo" style={{ height: '60px', width: 'auto', maxWidth: '160px', objectFit: 'contain', marginBottom: '4px' }} />
+            : null}
+          <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1a3c6e', lineHeight: 1.1 }}>{empresa.razonSocial}</div>
+          <div style={{ fontSize: '9px', marginTop: '4px', color: '#333' }}>{empresa.rtn}</div>
+          <div style={{ fontSize: '9px', color: '#333' }}>{empresa.direccion}</div>
+          {empresa.correo && <div style={{ fontSize: '9px', color: '#1a3c6e', fontWeight: 'bold' }}>{empresa.correo}</div>}
+          {empresa.telefono && <div style={{ fontSize: '9px', color: '#333' }}>{empresa.telefono}</div>}
+        </div>
+        {/* Right: FACTURA box */}
+        <div style={{ textAlign: 'right', borderLeft: '2px solid #000', paddingLeft: '16px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 'bold' }}>FACTURA</div>
+          <div style={{ fontSize: '11px', marginTop: '2px' }}>No. {factura.numero}</div>
+          <div style={{ fontSize: '13px', fontWeight: 'bold', marginTop: '6px', letterSpacing: '1px', color: tipo === 'ORIGINAL' ? '#1a3c6e' : '#666' }}>{tipo}</div>
+        </div>
+      </div>
+
+      {/* ── CLIENT + DATE ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <div>
+          <div style={{ fontWeight: 'bold', fontSize: '9px', color: '#555', marginBottom: '2px' }}>CLIENTE:</div>
+          <div style={{ fontSize: '9px' }}>{cliente?.rtn || cliente?.dni}</div>
+          <div style={{ fontSize: '10px', fontWeight: 'bold' }}>{cliente?.nombre}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '9px', color: '#555', marginBottom: '2px' }}>FECHA FACTURA:</div>
+          <div style={{ fontSize: '10px' }}>{factura.fecha}</div>
+          <div style={{ fontSize: '9px', color: '#555', marginTop: '4px' }}>Forma de Pago: {formaPago?.nombre}</div>
+          {factura.referenciaPago && <div style={{ fontSize: '9px', color: '#555' }}>Ref: {factura.referenciaPago}</div>}
+        </div>
+      </div>
+
+      {/* ── LINE ITEMS TABLE ── */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '9px' }}>
+        <thead>
+          <tr style={{ borderBottom: '1.5px solid #000', borderTop: '1.5px solid #000' }}>
+            <th style={{ textAlign: 'left', padding: '4px 3px', fontWeight: 'bold' }}>DESCRIPCION</th>
+            <th style={{ textAlign: 'center', padding: '4px 3px', fontWeight: 'bold', width: '50px' }}>CANTIDAD</th>
+            <th style={{ textAlign: 'right', padding: '4px 3px', fontWeight: 'bold', width: '90px' }}>DESCUENTOS</th>
+            <th style={{ textAlign: 'right', padding: '4px 3px', fontWeight: 'bold', width: '100px' }}>PRECIO UNITARIO</th>
+            <th style={{ textAlign: 'right', padding: '4px 3px', fontWeight: 'bold', width: '90px' }}>SUBTOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {factura.lineas.map(l => {
+            const descMonto = l.cantidad * l.precio - l.subtotal;
+            return (
+              <tr key={l.id} style={{ borderBottom: '0.5px solid #ddd' }}>
+                <td style={{ padding: '4px 3px', verticalAlign: 'top' }}>{l.descripcion}</td>
+                <td style={{ padding: '4px 3px', textAlign: 'center', verticalAlign: 'top' }}>{l.cantidad}</td>
+                <td style={{ padding: '4px 3px', textAlign: 'right', verticalAlign: 'top' }}>{sym} {fmtNum(descMonto)}</td>
+                <td style={{ padding: '4px 3px', textAlign: 'right', verticalAlign: 'top' }}>{sym} {fmtNum(l.precio)}</td>
+                <td style={{ padding: '4px 3px', textAlign: 'right', verticalAlign: 'top' }}>{sym} {fmtNum(l.subtotal)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* ── BOTTOM SECTION: left info + right totals ── */}
+      <div style={{ display: 'flex', gap: '16px', borderTop: '1.5px solid #000', paddingTop: '8px' }}>
+        {/* Left bottom */}
+        <div style={{ flex: 1, fontSize: '9px' }}>
+          <div style={{ marginBottom: '6px' }}>
+            <span style={{ fontWeight: 'bold' }}>Valor en letras: </span>
+            <span style={{ textTransform: 'uppercase' }}>{numToWords(factura.total)}</span>
+          </div>
+          <div style={{ marginBottom: '2px' }}>No. Orden de Compra Exenta: <span style={{ borderBottom: '1px solid #000', display: 'inline-block', width: '120px' }}>&nbsp;</span></div>
+          <div style={{ marginBottom: '2px' }}>No. Constancia Reg. Exonerado: <span style={{ borderBottom: '1px solid #000', display: 'inline-block', width: '110px' }}>&nbsp;</span></div>
+          <div style={{ marginBottom: '8px' }}>No. Registro de la SAG: <span style={{ borderBottom: '1px solid #000', display: 'inline-block', width: '128px' }}>&nbsp;</span></div>
+          <div style={{ borderTop: '1.5px solid #000', paddingTop: '6px' }}>
+            <div style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '4px' }}>CONDICIONES COMERCIALES</div>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{empresa.pieFactura}</div>
+          </div>
+        </div>
+
+        {/* Right totals */}
+        <div style={{ width: '220px', fontSize: '9px' }}>
+          {[
+            { label: 'DESCUENTO', val: factura.descuento },
+            { label: 'IMPORTE EXONERADO', val: exoneradoTotal },
+            { label: 'IMPORTE EXENTO', val: exentoTotal },
+            { label: 'IMPORTE 15%', val: imp15?.base ?? 0 },
+            { label: 'IMPORTE 18%', val: imp18?.base ?? 0 },
+            { label: 'IMPUESTO 15%', val: imp15?.monto ?? 0 },
+            { label: 'IMPUESTO 18%', val: imp18?.monto ?? 0 },
+            { label: `RETENCION${retencion ? ` (${retencion.nombre})` : ''}`, val: factura.retencionMonto },
+          ].map(row => (
+            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '0.5px solid #ccc', padding: '2px 0' }}>
+              <span>{row.label}</span>
+              <span>{sym} {fmtNum(row.val)}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #000', marginTop: '2px', paddingTop: '3px', fontWeight: 'bold', fontSize: '11px' }}>
+            <span>TOTAL A PAGAR</span>
+            <span>{sym} {fmtNum(factura.total)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── FOOTER ── */}
+      <div style={{ marginTop: '16px', borderTop: '1px solid #000', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: '#444' }}>
+        <div>
+          <div>CAI: {factura.cai}</div>
+          <div>Rango: Desde {pad(factura.rangoDesde, 3)} Hasta {pad(factura.rangoHasta, 3)}</div>
+          <div>Fecha Limite: {factura.fechaVigenciaCai}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div>Fecha de Impresión: {fechaImpresion}</div>
+          <div>Impreso por: {emisor}</div>
+          <div>Página 1 de 1</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Print Modal ───────────────────────────────────────────────────────────────
+function PrintModal({ factura, onClose }: { factura: Factura; onClose: () => void }) {
+  const { state } = useStore();
+
+  const emisorUsuario = state.usuarios.find(u => u.id === factura.usuarioEmisorId);
+  const emisorEmpleado = state.empleados.find(e => e.id === emisorUsuario?.empleadoId);
+  const emisor = emisorEmpleado ? `${emisorEmpleado.nombre} ${emisorEmpleado.apellido}` : 'Sistema';
 
   const handlePrint = () => window.print();
 
   return (
-    <Modal open onClose={onClose} title="Vista Previa de Factura" size="2xl"
+    <Modal open onClose={onClose} title={`Factura ${factura.numero}`} size="2xl"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-          <Button icon={<Printer size={16} />} onClick={handlePrint}>Imprimir</Button>
+          <Button variant="secondary" onClick={onClose} className="no-print">Cerrar</Button>
+          <Button icon={<Printer size={16} />} onClick={handlePrint} className="no-print">Imprimir Original + Copia</Button>
         </>
       }
     >
-      <div ref={printRef} className="print-area bg-white text-gray-900 p-6 text-sm font-sans">
-        <style>{`
-          @media print {
-            body > * { display: none !important; }
-            .print-area { display: block !important; }
-          }
-        `}</style>
-        {/* Header */}
-        <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
-          <div className="flex flex-col gap-1">
-            {empresa.logo
-              ? <img src={empresa.logo} alt="Logo" style={{ height: '64px', width: 'auto', maxWidth: '180px', objectFit: 'contain' }} />
-              : <h1 className="text-2xl font-bold text-gray-900">FACTURA</h1>
-            }
-            <p className="text-xs text-gray-500">Documento Fiscal</p>
-          </div>
-          <div className="text-right">
-            <p className="text-lg font-bold">{empresa.razonSocial}</p>
-            <p className="text-xs">RTN: {empresa.rtn}</p>
-            <p className="text-xs">{empresa.direccion}</p>
-            <p className="text-xs">{empresa.correo} | {empresa.telefono}</p>
-          </div>
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          .invoice-print-zone, .invoice-print-zone * { visibility: visible !important; }
+          .invoice-print-zone { position: fixed; top: 0; left: 0; width: 100%; }
+          .no-print { display: none !important; }
+          .page-break { page-break-before: always; }
+        }
+      `}</style>
+
+      <div className="invoice-print-zone space-y-6">
+        {/* ORIGINAL */}
+        <div className="border border-gray-300 rounded bg-white">
+          <InvoiceSheet factura={factura} tipo="ORIGINAL" emisor={emisor} />
         </div>
 
-        {/* Invoice Info */}
-        <div className="grid grid-cols-2 gap-4 mb-4 bg-gray-50 p-3 rounded">
-          <div>
-            <p><span className="font-semibold">No. Factura:</span> {factura.numero}</p>
-            <p><span className="font-semibold">Fecha:</span> {factura.fecha}</p>
-            <p><span className="font-semibold">Moneda:</span> {moneda?.nombre} ({moneda?.codigoIso})</p>
-            <p><span className="font-semibold">Forma de Pago:</span> {formaPago?.nombre}</p>
-            {factura.referenciaPago && <p><span className="font-semibold">Referencia:</span> {factura.referenciaPago}</p>}
-          </div>
-          <div>
-            <p><span className="font-semibold">CAI:</span> <span className="font-mono text-xs">{factura.cai}</span></p>
-            <p><span className="font-semibold">Rango Autorizado:</span> {pad(factura.rangoDesde, 8)} al {pad(factura.rangoHasta, 8)}</p>
-            <p><span className="font-semibold">Vigencia CAI:</span> {factura.fechaVigenciaCai}</p>
-          </div>
+        {/* Divider visible on screen */}
+        <div className="no-print flex items-center gap-3 text-xs text-gray-400">
+          <div className="flex-1 border-t border-dashed border-gray-300" />
+          <span>✂ CORTAR AQUÍ — COPIA</span>
+          <div className="flex-1 border-t border-dashed border-gray-300" />
         </div>
 
-        {/* Client */}
-        <div className="mb-4 p-3 border border-gray-200 rounded">
-          <p className="font-semibold text-xs uppercase text-gray-500 mb-1">Datos del Cliente</p>
-          <p className="font-medium">{cliente?.nombre}</p>
-          {cliente?.rtn && <p className="text-xs">RTN: {cliente.rtn}</p>}
-          {cliente?.dni && <p className="text-xs">DNI: {cliente.dni}</p>}
-          {cliente?.direccion && <p className="text-xs">{cliente.direccion}</p>}
-        </div>
-
-        {/* Lines */}
-        <table className="w-full text-xs mb-4 border-collapse">
-          <thead>
-            <tr className="bg-gray-800 text-white">
-              <th className="text-left px-2 py-1.5">Descripción</th>
-              <th className="text-right px-2 py-1.5">Cant.</th>
-              <th className="text-right px-2 py-1.5">Precio</th>
-              <th className="text-right px-2 py-1.5">Desc.</th>
-              <th className="text-right px-2 py-1.5">Impuesto</th>
-              <th className="text-right px-2 py-1.5">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {factura.lineas.map((l, i) => (
-              <tr key={l.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                <td className="px-2 py-1">{l.descripcion}</td>
-                <td className="px-2 py-1 text-right">{l.cantidad}</td>
-                <td className="px-2 py-1 text-right">{fmtNum(l.precio)}</td>
-                <td className="px-2 py-1 text-right">{l.descuento > 0 ? `${l.descuento}%` : '—'}</td>
-                <td className="px-2 py-1 text-right">{l.tipoImpuestoPorcentaje > 0 ? `${l.tipoImpuestoPorcentaje}%` : 'Exento'}</td>
-                <td className="px-2 py-1 text-right font-medium">{fmtNum(l.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Totals */}
-        <div className="flex justify-end mb-4">
-          <div className="w-64 text-xs space-y-0.5">
-            <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span>{fmtMoney(factura.subtotal, moneda?.simbolo)}</span>
-            </div>
-            {factura.descuento > 0 && (
-              <div className="flex justify-between text-red-600">
-                <span>Descuentos:</span>
-                <span>- {fmtMoney(factura.descuento, moneda?.simbolo)}</span>
-              </div>
-            )}
-            {factura.impuestos.map(imp => (
-              <div key={imp.tipoId} className="flex justify-between">
-                <span>{imp.nombre} ({imp.porcentaje}%):</span>
-                <span>{fmtMoney(imp.monto, moneda?.simbolo)}</span>
-              </div>
-            ))}
-            {factura.retencionMonto > 0 && (
-              <div className="flex justify-between text-orange-600">
-                <span>Retención:</span>
-                <span>- {fmtMoney(factura.retencionMonto, moneda?.simbolo)}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-bold text-base border-t border-gray-800 pt-1 mt-1">
-              <span>TOTAL A PAGAR:</span>
-              <span>{fmtMoney(factura.total, moneda?.simbolo)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-gray-300 pt-3 text-center">
-          <p className="text-xs text-gray-600">{empresa.pieFactura}</p>
-          <p className="text-xs text-gray-400 mt-1">La presente Factura fue autorizada mediante resolución No. {empresa.resolucionFacturacion}</p>
+        {/* COPIA */}
+        <div className="border border-gray-300 rounded bg-white page-break">
+          <InvoiceSheet factura={factura} tipo="COPIA" emisor={emisor} />
         </div>
       </div>
     </Modal>
