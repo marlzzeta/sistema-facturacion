@@ -258,7 +258,10 @@ function InvoiceSheet({ factura, tipo, emisor }: { factura: Factura; tipo: 'ORIG
             const descMonto = l.cantidad * l.precio - l.subtotal;
             return (
               <tr key={l.id} style={{ borderBottom: '0.5px solid #ddd' }}>
-                <td style={{ padding: '4px 3px', verticalAlign: 'top' }}>{l.descripcion}</td>
+                <td style={{ padding: '4px 3px', verticalAlign: 'top' }}>
+                  <div>{l.descripcion}</div>
+                  {l.detalle && <div style={{ fontSize: '8px', color: '#555', marginTop: '2px', whiteSpace: 'pre-wrap' }}>{l.detalle}</div>}
+                </td>
                 <td style={{ padding: '4px 3px', textAlign: 'center', verticalAlign: 'top' }}>{l.cantidad}</td>
                 <td style={{ padding: '4px 3px', textAlign: 'right', verticalAlign: 'top' }}>{sym} {fmtNum(descMonto)}</td>
                 <td style={{ padding: '4px 3px', textAlign: 'right', verticalAlign: 'top' }}>{sym} {fmtNum(l.precio)}</td>
@@ -447,7 +450,7 @@ export default function FacturasPage() {
 
   // Line item row state
   const [addingLine, setAddingLine] = useState(false);
-  const [lineForm, setLineForm] = useState({ itemId: '', cantidad: 1, precio: 0, descuento: 0 });
+  const [lineForm, setLineForm] = useState({ itemId: '', cantidad: 1, precio: 0, descuento: 0, detalle: '' });
 
   // ── Derived data ─────────────────────────────────────────────────────────
   const activeEsts = state.establecimientos.filter(e => e.activo);
@@ -526,6 +529,7 @@ export default function FacturasPage() {
       id: uuid(),
       itemId: lineForm.itemId,
       descripcion: item?.descripcion ?? '',
+      detalle: lineForm.detalle,
       cantidad: lineForm.cantidad,
       precio: lineForm.precio,
       descuento: lineForm.descuento,
@@ -543,7 +547,7 @@ export default function FacturasPage() {
     const art = state.articulos.find(a => a.id === lineForm.itemId);
     if (art && lineForm.cantidad > art.stock) { toast.error(`Stock insuficiente (disponible: ${art.stock})`); return; }
     setForm(p => ({ ...p, lineas: [...p.lineas, calcLine()] }));
-    setLineForm({ itemId: '', cantidad: 1, precio: 0, descuento: 0 });
+    setLineForm({ itemId: '', cantidad: 1, precio: 0, descuento: 0, detalle: '' });
     setAddingLine(false);
   };
 
@@ -786,6 +790,16 @@ export default function FacturasPage() {
                     <PrecioInput sym={sym} value={lineForm.precio} onChange={v => setLineForm(p => ({ ...p, precio: v }))} />
                     <Input as="input" type="number" label="Descuento (%)" value={lineForm.descuento} min={0} max={100}
                       onChange={e => setLineForm(p => ({ ...p, descuento: Number(e.target.value) }))} />
+                    <div className="col-span-2 flex flex-col gap-1">
+                      <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Detalle adicional</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Descripción adicional del producto o servicio (opcional)…"
+                        value={lineForm.detalle}
+                        onChange={e => setLineForm(p => ({ ...p, detalle: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      />
+                    </div>
 
                     {lineForm.itemId && (
                       <div className="col-span-2 text-xs bg-white dark:bg-slate-800 p-2 rounded border border-gray-200 dark:border-slate-700">
@@ -827,7 +841,10 @@ export default function FacturasPage() {
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
                       {form.lineas.map(l => (
                         <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30">
-                          <td className="px-3 py-2 text-gray-700 dark:text-slate-300">{l.descripcion}</td>
+                          <td className="px-3 py-2 text-gray-700 dark:text-slate-300">
+                            <div>{l.descripcion}</div>
+                            {l.detalle && <div className="text-gray-400 dark:text-slate-500 text-xs mt-0.5 whitespace-pre-wrap">{l.detalle}</div>}
+                          </td>
                           <td className="px-3 py-2 text-right">{l.cantidad}</td>
                           <td className="px-3 py-2 text-right">{fmtNum(l.precio)}</td>
                           <td className="px-3 py-2 text-right">{l.descuento > 0 ? `${l.descuento}%` : '—'}</td>

@@ -143,6 +143,7 @@ export interface LineaFactura {
   id: string;
   itemId: string;
   descripcion: string;
+  detalle: string;
   cantidad: number;
   precio: number;
   descuento: number;
