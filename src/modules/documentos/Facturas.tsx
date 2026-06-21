@@ -13,6 +13,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import type { Factura, LineaFactura, PuntoEmision } from '../../types';
+import { fmtMoney, fmtNum } from '../../utils/format';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const today = () => new Date().toISOString().split('T')[0];
@@ -120,10 +121,10 @@ function PrintModal({ factura, onClose }: { factura: Factura; onClose: () => voi
               <tr key={l.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                 <td className="px-2 py-1">{l.descripcion}</td>
                 <td className="px-2 py-1 text-right">{l.cantidad}</td>
-                <td className="px-2 py-1 text-right">{l.precio.toFixed(2)}</td>
+                <td className="px-2 py-1 text-right">{fmtNum(l.precio)}</td>
                 <td className="px-2 py-1 text-right">{l.descuento > 0 ? `${l.descuento}%` : '—'}</td>
                 <td className="px-2 py-1 text-right">{l.tipoImpuestoPorcentaje > 0 ? `${l.tipoImpuestoPorcentaje}%` : 'Exento'}</td>
-                <td className="px-2 py-1 text-right font-medium">{l.total.toFixed(2)}</td>
+                <td className="px-2 py-1 text-right font-medium">{fmtNum(l.total)}</td>
               </tr>
             ))}
           </tbody>
@@ -134,29 +135,29 @@ function PrintModal({ factura, onClose }: { factura: Factura; onClose: () => voi
           <div className="w-64 text-xs space-y-0.5">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>{moneda?.simbolo} {factura.subtotal.toFixed(2)}</span>
+              <span>{fmtMoney(factura.subtotal, moneda?.simbolo)}</span>
             </div>
             {factura.descuento > 0 && (
               <div className="flex justify-between text-red-600">
                 <span>Descuentos:</span>
-                <span>- {moneda?.simbolo} {factura.descuento.toFixed(2)}</span>
+                <span>- {fmtMoney(factura.descuento, moneda?.simbolo)}</span>
               </div>
             )}
             {factura.impuestos.map(imp => (
               <div key={imp.tipoId} className="flex justify-between">
                 <span>{imp.nombre} ({imp.porcentaje}%):</span>
-                <span>{moneda?.simbolo} {imp.monto.toFixed(2)}</span>
+                <span>{fmtMoney(imp.monto, moneda?.simbolo)}</span>
               </div>
             ))}
             {factura.retencionMonto > 0 && (
               <div className="flex justify-between text-orange-600">
                 <span>Retención:</span>
-                <span>- {moneda?.simbolo} {factura.retencionMonto.toFixed(2)}</span>
+                <span>- {fmtMoney(factura.retencionMonto, moneda?.simbolo)}</span>
               </div>
             )}
             <div className="flex justify-between font-bold text-base border-t border-gray-800 pt-1 mt-1">
               <span>TOTAL A PAGAR:</span>
-              <span>{moneda?.simbolo} {factura.total.toFixed(2)}</span>
+              <span>{fmtMoney(factura.total, moneda?.simbolo)}</span>
             </div>
           </div>
         </div>
@@ -356,7 +357,7 @@ export default function FacturasPage() {
       key: 'total', header: 'Total',
       render: r => {
         const m = state.tiposMoneda.find(m => m.id === r.monedaId);
-        return <span className="font-semibold">{m?.simbolo ?? 'L.'} {r.total.toFixed(2)}</span>;
+        return <span className="font-semibold">{fmtMoney(r.total, m?.simbolo)}</span>;
       },
     },
     {
@@ -555,9 +556,9 @@ export default function FacturasPage() {
                           const l = calcLine();
                           return (
                             <div className="grid grid-cols-3 gap-2 text-center">
-                              <div><p className="text-gray-400">Subtotal</p><p className="font-semibold">{sym} {l.subtotal.toFixed(2)}</p></div>
-                              <div><p className="text-gray-400">Impuesto</p><p className="font-semibold">{sym} {l.impuesto.toFixed(2)}</p></div>
-                              <div><p className="text-gray-400">Total</p><p className="font-bold text-blue-600">{sym} {l.total.toFixed(2)}</p></div>
+                              <div><p className="text-gray-400">Subtotal</p><p className="font-semibold">{fmtMoney(l.subtotal, sym)}</p></div>
+                              <div><p className="text-gray-400">Impuesto</p><p className="font-semibold">{fmtMoney(l.impuesto, sym)}</p></div>
+                              <div><p className="text-gray-400">Total</p><p className="font-bold text-blue-600">{fmtMoney(l.total, sym)}</p></div>
                             </div>
                           );
                         })()}
@@ -591,10 +592,10 @@ export default function FacturasPage() {
                         <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30">
                           <td className="px-3 py-2 text-gray-700 dark:text-slate-300">{l.descripcion}</td>
                           <td className="px-3 py-2 text-right">{l.cantidad}</td>
-                          <td className="px-3 py-2 text-right">{l.precio.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right">{fmtNum(l.precio)}</td>
                           <td className="px-3 py-2 text-right">{l.descuento > 0 ? `${l.descuento}%` : '—'}</td>
                           <td className="px-3 py-2 text-right">{l.tipoImpuestoPorcentaje > 0 ? `${l.tipoImpuestoPorcentaje}%` : 'Exento'}</td>
-                          <td className="px-3 py-2 text-right font-semibold">{sym} {l.total.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right font-semibold">{fmtMoney(l.total, sym)}</td>
                           <td className="px-3 py-2">
                             <button onClick={() => removeLine(l.id)} className="text-red-400 hover:text-red-600">
                               <Trash2 size={14} />
@@ -621,28 +622,28 @@ export default function FacturasPage() {
               {/* Totals */}
               <div className="bg-gray-50 dark:bg-slate-700/30 rounded-xl p-4 space-y-2 text-sm">
                 <div className="flex justify-between text-gray-600 dark:text-slate-400">
-                  <span>Subtotal:</span><span>{sym} {subtotal.toFixed(2)}</span>
+                  <span>Subtotal:</span><span>{fmtMoney(subtotal, sym)}</span>
                 </div>
                 {totalDescuentos > 0 && (
                   <div className="flex justify-between text-red-600">
-                    <span>Total Descuentos:</span><span>- {sym} {totalDescuentos.toFixed(2)}</span>
+                    <span>Total Descuentos:</span><span>- {fmtMoney(totalDescuentos, sym)}</span>
                   </div>
                 )}
                 {impuestos.map(imp => (
                   <div key={imp.tipoId} className="flex justify-between text-gray-600 dark:text-slate-400">
-                    <span>Gravado {imp.porcentaje}% ({sym} {imp.base.toFixed(2)}):</span>
-                    <span>{sym} {imp.monto.toFixed(2)}</span>
+                    <span>Gravado {imp.porcentaje}% ({fmtMoney(imp.base, sym)}):</span>
+                    <span>{fmtMoney(imp.monto, sym)}</span>
                   </div>
                 ))}
                 {retencionMonto > 0 && (
                   <div className="flex justify-between text-orange-600">
                     <span>Retención ({clienteRetencion?.nombre}):</span>
-                    <span>- {sym} {retencionMonto.toFixed(2)}</span>
+                    <span>- {fmtMoney(retencionMonto, sym)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-xl font-bold text-gray-900 dark:text-slate-100 pt-2 border-t border-gray-300 dark:border-slate-600">
                   <span>TOTAL A PAGAR:</span>
-                  <span className="text-blue-600">{sym} {total.toFixed(2)}</span>
+                  <span className="text-blue-600">{fmtMoney(total, sym)}</span>
                 </div>
               </div>
 

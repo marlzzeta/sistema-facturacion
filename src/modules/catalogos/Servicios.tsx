@@ -10,6 +10,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import type { Servicio } from '../../types';
+import { fmtMoney } from '../../utils/format';
 
 type FormData = Omit<Servicio, 'id' | 'tipo'>;
 const empty: FormData = { codigo: '', descripcion: '', precio: 0, tipoImpuestoId: '', activo: true };
@@ -42,7 +43,7 @@ export default function ServiciosPage() {
   const columns: Column<Servicio>[] = [
     { key: 'codigo', header: 'Código' },
     { key: 'descripcion', header: 'Descripción' },
-    { key: 'precio', header: 'Precio', render: r => `L. ${r.precio.toFixed(2)}` },
+    { key: 'precio', header: 'Precio', render: r => fmtMoney(r.precio) },
     { key: 'tipoImpuestoId', header: 'Impuesto', render: r => getImpNombre(r.tipoImpuestoId) },
     { key: 'activo', header: 'Estado', render: r => <Badge variant={r.activo ? 'success' : 'danger'}>{r.activo ? 'Activo' : 'Inactivo'}</Badge> },
     {
