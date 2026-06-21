@@ -330,48 +330,92 @@ function InvoiceSheet({ factura, tipo, emisor }: { factura: Factura; tipo: 'ORIG
 // ── Print Modal ───────────────────────────────────────────────────────────────
 function PrintModal({ factura, onClose }: { factura: Factura; onClose: () => void }) {
   const { state } = useStore();
+  const { toast } = useToast();
+  const [generating, setGenerating] = React.useState<'original' | 'copia' | 'both' | null>(null);
+  const refOriginal = React.useRef<HTMLDivElement>(null);
+  const refCopia = React.useRef<HTMLDivElement>(null);
 
   const emisorUsuario = state.usuarios.find(u => u.id === factura.usuarioEmisorId);
   const emisorEmpleado = state.empleados.find(e => e.id === emisorUsuario?.empleadoId);
   const emisor = emisorEmpleado ? `${emisorEmpleado.nombre} ${emisorEmpleado.apellido}` : 'Sistema';
 
-  const handlePrint = () => window.print();
+  const downloadPdf = async (el: HTMLElement, filename: string) => {
+    // @ts-ignore
+    const html2pdf = (await import('html2pdf.js')).default;
+    await html2pdf().set({
+      margin: [6, 6, 6, 6],
+      filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    }).from(el).save();
+  };
+
+  const handleDownload = async (tipo: 'ORIGINAL' | 'COPIA') => {
+    const ref = tipo === 'ORIGINAL' ? refOriginal : refCopia;
+    if (!ref.current) return;
+    const key = tipo === 'ORIGINAL' ? 'original' : 'copia';
+    setGenerating(key);
+    try {
+      await downloadPdf(ref.current, `FACTURA ${factura.numero}_${tipo}.pdf`);
+      toast.success(`PDF ${tipo} descargado.`);
+    } catch {
+      toast.error('Error al generar el PDF.');
+    }
+    setGenerating(null);
+  };
+
+  const handleBoth = async () => {
+    if (!refOriginal.current || !refCopia.current) return;
+    setGenerating('both');
+    try {
+      await downloadPdf(refOriginal.current, `FACTURA ${factura.numero}_ORIGINAL.pdf`);
+      await downloadPdf(refCopia.current, `FACTURA ${factura.numero}_COPIA.pdf`);
+      toast.success('Ambos PDFs descargados.');
+    } catch {
+      toast.error('Error al generar los PDFs.');
+    }
+    setGenerating(null);
+  };
 
   return (
     <Modal open onClose={onClose} title={`Factura ${factura.numero}`} size="2xl"
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose} className="no-print">Cerrar</Button>
-          <Button icon={<Printer size={16} />} onClick={handlePrint} className="no-print">Imprimir Original + Copia</Button>
-        </>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+          <Button variant="secondary" icon={<Printer size={16} />}
+            loading={generating === 'original'} onClick={() => handleDownload('ORIGINAL')}>
+            Descargar ORIGINAL
+          </Button>
+          <Button variant="secondary" icon={<Printer size={16} />}
+            loading={generating === 'copia'} onClick={() => handleDownload('COPIA')}>
+            Descargar COPIA
+          </Button>
+          <Button icon={<Printer size={16} />} loading={generating === 'both'} onClick={handleBoth}>
+            Descargar Ambos
+          </Button>
+        </div>
       }
     >
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          .invoice-print-zone, .invoice-print-zone * { visibility: visible !important; }
-          .invoice-print-zone { position: fixed; top: 0; left: 0; width: 100%; }
-          .no-print { display: none !important; }
-          .page-break { page-break-before: always; }
-        }
-      `}</style>
-
-      <div className="invoice-print-zone space-y-6">
-        {/* ORIGINAL */}
-        <div className="border border-gray-300 rounded bg-white">
-          <InvoiceSheet factura={factura} tipo="ORIGINAL" emisor={emisor} />
+      <div className="space-y-4">
+        <div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">ORIGINAL</p>
+          <div className="border border-blue-200 rounded overflow-hidden">
+            <div ref={refOriginal}>
+              <InvoiceSheet factura={factura} tipo="ORIGINAL" emisor={emisor} />
+            </div>
+          </div>
         </div>
-
-        {/* Divider visible on screen */}
-        <div className="no-print flex items-center gap-3 text-xs text-gray-400">
-          <div className="flex-1 border-t border-dashed border-gray-300" />
-          <span>✂ CORTAR AQUÍ — COPIA</span>
-          <div className="flex-1 border-t border-dashed border-gray-300" />
+        <div className="flex items-center gap-3 text-xs text-gray-300">
+          <div className="flex-1 border-t border-dashed" /><span>COPIA</span><div className="flex-1 border-t border-dashed" />
         </div>
-
-        {/* COPIA */}
-        <div className="border border-gray-300 rounded bg-white page-break">
-          <InvoiceSheet factura={factura} tipo="COPIA" emisor={emisor} />
+        <div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">COPIA</p>
+          <div className="border border-gray-200 rounded overflow-hidden">
+            <div ref={refCopia}>
+              <InvoiceSheet factura={factura} tipo="COPIA" emisor={emisor} />
+            </div>
+          </div>
         </div>
       </div>
     </Modal>
