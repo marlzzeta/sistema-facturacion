@@ -42,7 +42,7 @@ export default function ArticulosPage() {
 
   const columns: Column<Articulo>[] = [
     { key: 'codigo', header: 'Código' },
-    { key: 'descripcion', header: 'Descripción' },
+    { key: 'descripcion', header: 'Nombre del Producto' },
     { key: 'precio', header: 'Precio', render: r => fmtMoney(r.precio) },
     { key: 'stock', header: 'Stock', render: r => <Badge variant={r.stock > 0 ? 'success' : 'danger'}>{r.stock}</Badge> },
     { key: 'tipoImpuestoId', header: 'Impuesto', render: r => getImpNombre(r.tipoImpuestoId) },

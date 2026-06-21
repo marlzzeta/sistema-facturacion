@@ -42,7 +42,7 @@ export default function ServiciosPage() {
 
   const columns: Column<Servicio>[] = [
     { key: 'codigo', header: 'Código' },
-    { key: 'descripcion', header: 'Descripción' },
+    { key: 'descripcion', header: 'Nombre del Servicio' },
     { key: 'precio', header: 'Precio', render: r => fmtMoney(r.precio) },
     { key: 'tipoImpuestoId', header: 'Impuesto', render: r => getImpNombre(r.tipoImpuestoId) },
     { key: 'activo', header: 'Estado', render: r => <Badge variant={r.activo ? 'success' : 'danger'}>{r.activo ? 'Activo' : 'Inactivo'}</Badge> },
