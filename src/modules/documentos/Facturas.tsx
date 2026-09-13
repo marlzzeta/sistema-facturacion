@@ -14,6 +14,7 @@ import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import type { Factura, LineaFactura, PuntoEmision } from '../../types';
 import { fmtMoney, fmtNum } from '../../utils/format';
+import { calculateInvoiceLine, calculateInvoiceTotals } from '../../utils/invoice';
 
 // ── ItemSearchInput: searchable combobox for articles and services ────────────
 function ItemSearchInput({
@@ -121,10 +122,6 @@ function PrecioInput({ sym, value, onChange }: { sym: string; value: number; onC
   const [display, setDisplay] = React.useState(fmtNum(value));
   const [focused, setFocused] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!focused) setDisplay(fmtNum(value));
-  }, [value, focused]);
-
   return (
     <div className="flex flex-col gap-1">
       <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Precio ({sym})</label>
@@ -159,6 +156,36 @@ const pad = (n: number, len: number) => String(n).padStart(len, '0');
 // ── Types ────────────────────────────────────────────────────────────────────
 type Step = 1 | 2 | 3 | 4;
 
+const stepLabels = ['Datos Generales', 'Cliente', 'Líneas de Detalle', 'Resumen y Pago'];
+
+function StepIndicator({ step }: { step: Step }) {
+  return (
+    <div className="flex items-center mb-6">
+      {stepLabels.map((label, idx) => {
+        const currentStep = (idx + 1) as Step;
+        const active = step === currentStep;
+        const done = step > currentStep;
+        return (
+          <React.Fragment key={currentStep}>
+            <div className="flex flex-col items-center">
+              <div className={[
+                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors',
+                active ? 'bg-blue-600 border-blue-600 text-white' : done ? 'bg-green-500 border-green-500 text-white' : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-400',
+              ].join(' ')}>
+                {done ? <CheckCircle size={16} /> : currentStep}
+              </div>
+              <span className={`text-xs mt-1 hidden sm:block ${active ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>{label}</span>
+            </div>
+            {idx < stepLabels.length - 1 && (
+              <div className={`flex-1 h-0.5 mx-2 ${done ? 'bg-green-400' : 'bg-gray-200 dark:bg-slate-700'}`} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
 interface FormState {
   fecha: string;
   monedaId: string;
@@ -188,11 +215,10 @@ function InvoiceSheet({ factura, tipo, emisor }: { factura: Factura; tipo: 'ORIG
 
   // Amount in words using basic implementation (numero-a-letras may not be available)
   const numToWords = (n: number): string => {
-    try {
-      // @ts-ignore
-      const NumerosALetras = (window as any).NumerosALetras;
-      if (NumerosALetras) return NumerosALetras(n);
-    } catch (_) { /* fallback */ }
+    const numerosALetras = (window as Window & {
+      NumerosALetras?: (value: number) => string;
+    }).NumerosALetras;
+    if (numerosALetras) return numerosALetras(n);
     const entero = Math.floor(n);
     const cents = Math.round((n - entero) * 100);
     return `${entero.toLocaleString('es-HN')} Y ${String(cents).padStart(2, '0')} / 100 ${moneda?.codigoIso ?? 'LEMPIRAS'}`;
@@ -343,7 +369,6 @@ function PrintModal({ factura, onClose }: { factura: Factura; onClose: () => voi
   const emisor = emisorEmpleado ? `${emisorEmpleado.nombre} ${emisorEmpleado.apellido}` : 'Sistema';
 
   const downloadPdf = async (el: HTMLElement, filename: string) => {
-    // @ts-ignore
     const html2pdf = (await import('html2pdf.js')).default;
     await html2pdf().set({
       margin: [6, 6, 6, 6],
@@ -480,37 +505,11 @@ export default function FacturasPage() {
   const formaPagoObj = state.formasPago.find(f => f.id === form.formaPagoId);
 
   // ── Totals calculation ────────────────────────────────────────────────────
-  const calcTotals = () => {
-    const subtotalBruto = form.lineas.reduce((s, l) => s + l.subtotal, 0);
-    const totalDescuentos = form.lineas.reduce((s, l) => {
-      const base = l.cantidad * l.precio;
-      return s + (base - l.subtotal);
-    }, 0);
-    const subtotal = subtotalBruto;
-
-    // Group taxes
-    const taxMap = new Map<string, { tipoId: string; nombre: string; porcentaje: number; base: number; monto: number }>();
-    form.lineas.forEach(l => {
-      if (l.tipoImpuestoPorcentaje === 0) return;
-      const key = l.tipoImpuestoId;
-      const existing = taxMap.get(key);
-      const impNombre = state.tiposImpuesto.find(i => i.id === l.tipoImpuestoId)?.nombre ?? '';
-      if (existing) {
-        existing.base += l.subtotal;
-        existing.monto += l.impuesto;
-      } else {
-        taxMap.set(key, { tipoId: key, nombre: impNombre, porcentaje: l.tipoImpuestoPorcentaje, base: l.subtotal, monto: l.impuesto });
-      }
-    });
-    const impuestos = Array.from(taxMap.values());
-    const totalImpuestos = impuestos.reduce((s, i) => s + i.monto, 0);
-
-    const baseRetencion = subtotal + totalImpuestos;
-    const retencionMonto = clienteRetencion ? (baseRetencion * clienteRetencion.porcentaje) / 100 : 0;
-    const total = subtotal + totalImpuestos - retencionMonto;
-
-    return { subtotal, totalDescuentos, impuestos, retencionMonto, total };
-  };
+  const calcTotals = () => calculateInvoiceTotals(
+    form.lineas,
+    state.tiposImpuesto,
+    clienteRetencion?.porcentaje,
+  );
 
   const { subtotal, totalDescuentos, impuestos, retencionMonto, total } = calcTotals();
   const moneda = state.tiposMoneda.find(m => m.id === form.monedaId);
@@ -518,34 +517,28 @@ export default function FacturasPage() {
 
   // ── Line helpers ──────────────────────────────────────────────────────────
   const calcLine = (): LineaFactura => {
-    const item = allItems.find(i => i.id === lineForm.itemId);
-    const imp = item ? state.tiposImpuesto.find(t => t.id === item.tipoImpuestoId) : null;
-    const pct = (selectedCliente?.exentoImpuesto || !imp) ? 0 : imp.porcentaje;
-    const base = lineForm.cantidad * lineForm.precio;
-    const descMonto = base * (lineForm.descuento / 100);
-    const sub = base - descMonto;
-    const impMonto = sub * (pct / 100);
-    return {
+    return calculateInvoiceLine({
       id: uuid(),
       itemId: lineForm.itemId,
-      descripcion: item?.descripcion ?? '',
-      detalle: lineForm.detalle,
       cantidad: lineForm.cantidad,
       precio: lineForm.precio,
       descuento: lineForm.descuento,
-      tipoImpuestoId: item?.tipoImpuestoId ?? '',
-      tipoImpuestoPorcentaje: pct,
-      subtotal: sub,
-      impuesto: impMonto,
-      total: sub + impMonto,
-    };
+      detalle: lineForm.detalle,
+      clienteExento: selectedCliente?.exentoImpuesto ?? false,
+      items: allItems,
+      tiposImpuesto: state.tiposImpuesto,
+    });
   };
 
   const addLine = () => {
     if (!lineForm.itemId) { toast.error('Seleccione un ítem'); return; }
     if (lineForm.cantidad < 1) { toast.error('Cantidad mínima: 1'); return; }
     const art = state.articulos.find(a => a.id === lineForm.itemId);
-    if (art && lineForm.cantidad > art.stock) { toast.error(`Stock insuficiente (disponible: ${art.stock})`); return; }
+    const cantidadReservada = form.lineas
+      .filter(linea => linea.itemId === lineForm.itemId)
+      .reduce((total, linea) => total + linea.cantidad, 0);
+    const stockDisponible = art ? art.stock - cantidadReservada : 0;
+    if (art && lineForm.cantidad > stockDisponible) { toast.error(`Stock insuficiente (disponible: ${stockDisponible})`); return; }
     setForm(p => ({ ...p, lineas: [...p.lineas, calcLine()] }));
     setLineForm({ itemId: '', cantidad: 1, precio: 0, descuento: 0, detalle: '' });
     setAddingLine(false);
@@ -635,35 +628,6 @@ export default function FacturasPage() {
     },
   ];
 
-  // ── Step navigation ───────────────────────────────────────────────────────
-  const stepLabels = ['Datos Generales', 'Cliente', 'Líneas de Detalle', 'Resumen y Pago'];
-
-  const StepIndicator = () => (
-    <div className="flex items-center mb-6">
-      {stepLabels.map((label, idx) => {
-        const s = (idx + 1) as Step;
-        const active = step === s;
-        const done = step > s;
-        return (
-          <React.Fragment key={s}>
-            <div className="flex flex-col items-center">
-              <div className={[
-                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors',
-                active ? 'bg-blue-600 border-blue-600 text-white' : done ? 'bg-green-500 border-green-500 text-white' : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-400',
-              ].join(' ')}>
-                {done ? <CheckCircle size={16} /> : s}
-              </div>
-              <span className={`text-xs mt-1 hidden sm:block ${active ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>{label}</span>
-            </div>
-            {idx < stepLabels.length - 1 && (
-              <div className={`flex-1 h-0.5 mx-2 ${done ? 'bg-green-400' : 'bg-gray-200 dark:bg-slate-700'}`} />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-
   // ── Render new invoice form ───────────────────────────────────────────────
   if (view === 'new') {
     return (
@@ -674,7 +638,7 @@ export default function FacturasPage() {
           action={<Button variant="secondary" icon={<ChevronLeft size={16} />} onClick={() => { setView('list'); setStep(1); }}>Volver</Button>}
         />
 
-        <StepIndicator />
+        <StepIndicator step={step} />
 
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
           {/* ── Step 1: Datos Generales ── */}

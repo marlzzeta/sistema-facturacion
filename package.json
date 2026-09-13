@@ -6,25 +6,44 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "vercel-build": "npm run db:migrate && npm run build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "server": "tsx server/main.ts",
+    "server:dev": "tsx watch server/main.ts",
+    "db:migrate": "tsx server/migrate-cli.ts",
+    "server:typecheck": "tsc -p tsconfig.server.json --noEmit",
+    "test:server": "vitest run server"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/helmet": "^13.1.1",
+    "@node-rs/argon2": "^2.2.1",
     "@tailwindcss/vite": "^4.3.0",
     "bcryptjs": "^3.0.3",
     "crypto-js": "^4.2.0",
+    "fastify": "^5.12.4",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^1.17.0",
     "numero-a-letras": "^1.0.6",
+    "pg": "^8.23.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "zod": "^4.6.4"
+  },
+  "engines": {
+    "node": "22.x"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@eslint/js": "^10.0.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/crypto-js": "^4.2.2",
     "@types/node": "^24.12.3",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -32,8 +51,10 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "tsx": "^4.23.13",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^5.0.0"
   }
 }

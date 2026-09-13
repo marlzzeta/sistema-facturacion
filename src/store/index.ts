@@ -113,7 +113,7 @@ type Action =
   | { type: 'SET_SESION'; payload: Sesion | null };
 
 // ── Initial State ────────────────────────────────────────────────────────────
-const initialState: AppState = {
+export const initialState: AppState = {
   empresa: {
     id: 'emp-main',
     razonSocial: 'Tecnologías Honduras S.A.',
@@ -190,7 +190,7 @@ const initialState: AppState = {
 };
 
 // ── Reducer ──────────────────────────────────────────────────────────────────
-function reducer(state: AppState, action: Action): AppState {
+export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'UPDATE_EMPRESA': return { ...state, empresa: action.payload };
     // Establecimientos
@@ -252,8 +252,11 @@ function reducer(state: AppState, action: Action): AppState {
       const factura = action.payload;
       // Deduct stock from articulos
       const updatedArticulos = state.articulos.map(art => {
-        const linea = factura.lineas.find(l => l.itemId === art.id);
-        if (linea) return { ...art, stock: art.stock - linea.cantidad };
+        const cantidadEmitida = factura.lineas.reduce(
+          (total, linea) => linea.itemId === art.id ? total + linea.cantidad : total,
+          0,
+        );
+        if (cantidadEmitida > 0) return { ...art, stock: art.stock - cantidadEmitida };
         return art;
       });
       // Increment correlativo
