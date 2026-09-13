@@ -4,6 +4,7 @@ import {
   Search, Trash2, AlertCircle, CheckCircle, X
 } from 'lucide-react';
 import { useStore, uuid } from '../../store';
+import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../components/ui/Toast';
 import PageHeader from '../../components/ui/PageHeader';
 import Table from '../../components/ui/Table';
@@ -453,6 +454,7 @@ function PrintModal({ factura, onClose }: { factura: Factura; onClose: () => voi
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function FacturasPage() {
   const { state, dispatch } = useStore();
+  const { sesion, csrfToken } = useAuth();
   const { toast } = useToast();
 
   const [view, setView] = useState<'list' | 'new'>('list');
@@ -476,6 +478,19 @@ export default function FacturasPage() {
   // Line item row state
   const [addingLine, setAddingLine] = useState(false);
   const [lineForm, setLineForm] = useState({ itemId: '', cantidad: 1, precio: 0, descuento: 0, detalle: '' });
+  const invoicesLoadedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!sesion || invoicesLoadedRef.current) return;
+    invoicesLoadedRef.current = true;
+    let activo = true;
+    void fetch('/api/v1/invoices', { credentials: 'include' }).then(async response => {
+      if (!activo || !response.ok) return;
+      const result = await response.json() as { data: Factura[] };
+      result.data.forEach(factura => dispatch({ type: 'ADD_FACTURA', payload: factura }));
+    }).catch(() => undefined);
+    return () => { activo = false; };
+  }, [dispatch, sesion]);
 
   // ── Derived data ─────────────────────────────────────────────────────────
   const activeEsts = state.establecimientos.filter(e => e.activo);
@@ -547,7 +562,7 @@ export default function FacturasPage() {
   const removeLine = (id: string) => setForm(p => ({ ...p, lineas: p.lineas.filter(l => l.id !== id) }));
 
   // ── Emit factura ──────────────────────────────────────────────────────────
-  const emitir = () => {
+  const emitir = async () => {
     if (!form.establecimientoId) { toast.error('Seleccione un establecimiento'); return; }
     if (!form.puntoEmisionId || !selectedPE) { toast.error('Seleccione un punto de emisión válido'); return; }
     if (!form.clienteId) { toast.error('Seleccione un cliente'); return; }
@@ -584,7 +599,19 @@ export default function FacturasPage() {
       referenciaPago: form.referenciaPago,
     };
 
-    dispatch({ type: 'EMIT_FACTURA', payload: factura });
+    try {
+      const response = await fetch('/api/v1/invoices', {
+        method: 'POST', credentials: 'include',
+        headers: { 'content-type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) },
+        body: JSON.stringify({ numero, clienteId: form.clienteId, fecha: form.fecha, total: total.toFixed(2), estado: 'emitido', payload: factura }),
+      });
+      if (!response.ok) throw new Error('No se pudo registrar la factura en el servidor.');
+      const result = await response.json() as { data: Factura };
+      dispatch({ type: 'EMIT_FACTURA', payload: result.data });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo registrar la factura.');
+      return;
+    }
     toast.success(`Factura ${numero} emitida correctamente`);
 
     // Reset
@@ -942,3 +969,4 @@ export default function FacturasPage() {
     </div>
   );
 }
+

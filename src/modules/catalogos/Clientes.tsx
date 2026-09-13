@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { useStore, uuid } from '../../store';
+import { useStore } from '../../store';
+import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../components/ui/Toast';
 import PageHeader from '../../components/ui/PageHeader';
 import Table from '../../components/ui/Table';
@@ -16,6 +17,7 @@ const empty: FormData = { nombre: '', rtn: '', dni: '', correo: '', telefono: ''
 
 export default function ClientesPage() {
   const { state, dispatch } = useStore();
+  const { csrfToken } = useAuth();
   const { toast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Cliente | null>(null);
@@ -25,16 +27,37 @@ export default function ClientesPage() {
   const openNew = () => { setEditing(null); setForm(empty); setModalOpen(true); };
   const openEdit = (c: Cliente) => { setEditing(c); setForm({ nombre: c.nombre, rtn: c.rtn, dni: c.dni, correo: c.correo, telefono: c.telefono, direccion: c.direccion, condicionPago: c.condicionPago, limitCredito: c.limitCredito, exentoImpuesto: c.exentoImpuesto, activo: c.activo }); setModalOpen(true); };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.nombre.trim()) { toast.error('El nombre es requerido'); return; }
-    if (editing) {
-      dispatch({ type: 'UPDATE_CLIENTE', payload: { ...editing, ...form } });
-      toast.success('Cliente actualizado');
-    } else {
-      dispatch({ type: 'ADD_CLIENTE', payload: { id: uuid(), ...form } });
-      toast.success('Cliente creado');
+    const headers = { 'content-type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) };
+    try {
+      const response = await fetch(editing ? `/api/v1/clients/${editing.id}` : '/api/v1/clients', {
+        method: editing ? 'PATCH' : 'POST', credentials: 'include', headers,
+        body: JSON.stringify({ ...form, limitCredito: Number(form.limitCredito).toFixed(2), ...(editing ? { version: (editing as Cliente & { version?: number }).version ?? 1 } : {}) }),
+      });
+      if (!response.ok) throw new Error('No se pudo guardar el cliente.');
+      const result = await response.json() as { data: Cliente & { version: number; limitCredito: string } };
+      const saved = { ...result.data, limitCredito: Number(result.data.limitCredito) };
+      dispatch({ type: editing ? 'UPDATE_CLIENTE' : 'ADD_CLIENTE', payload: saved });
+      toast.success(editing ? 'Cliente actualizado' : 'Cliente creado');
+      setModalOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo guardar el cliente.');
     }
-    setModalOpen(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const cliente = state.clientes.find(item => item.id === deleteId);
+    if (!cliente) return;
+    try {
+      const response = await fetch(`/api/v1/clients/${deleteId}`, { method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) }, body: JSON.stringify({ ...cliente, limitCredito: Number(cliente.limitCredito).toFixed(2), activo: false, version: (cliente as Cliente & { version?: number }).version ?? 1 }) });
+      if (!response.ok) throw new Error('No se pudo desactivar el cliente.');
+      const result = await response.json() as { data: Cliente & { limitCredito: string } };
+      dispatch({ type: 'UPDATE_CLIENTE', payload: { ...result.data, limitCredito: Number(result.data.limitCredito) } });
+      toast.success('Cliente desactivado');
+      setDeleteId(null);
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'No se pudo desactivar el cliente.'); }
   };
 
   const columns: Column<Cliente>[] = [
@@ -87,10 +110,11 @@ export default function ClientesPage() {
       </Modal>
 
       <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Confirmar Eliminación"
-        footer={<><Button variant="secondary" onClick={() => setDeleteId(null)}>Cancelar</Button><Button variant="danger" onClick={() => { if (deleteId) { dispatch({ type: 'DELETE_CLIENTE', payload: deleteId }); toast.success('Cliente eliminado'); setDeleteId(null); } }}>Eliminar</Button></>}
+        footer={<><Button variant="secondary" onClick={() => setDeleteId(null)}>Cancelar</Button><Button variant="danger" onClick={handleDelete}>Desactivar</Button></>}
       >
         <p className="text-gray-600 dark:text-slate-300">¿Desea eliminar este cliente?</p>
       </Modal>
     </div>
   );
 }
+
