@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import bcryptjs from 'bcryptjs';
 import { useStore } from '../store';
 import type { Usuario, Sesion } from '../types';
@@ -34,15 +34,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ? state.usuarios.find(u => u.id === sesion.usuarioId) ?? null
     : null;
 
-  const logout = () => {
+  const logout = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (actividadRef.current) clearTimeout(actividadRef.current);
+    setTiempoRestante(SESSION_TIMEOUT_MS / 1000);
     dispatch({ type: 'SET_SESION', payload: null });
     dispatch({ type: 'SET_USUARIO', payload: null });
-  };
+  }, [dispatch]);
 
   // Reset inactivity timer on user activity
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     if (!sesion) return;
     const nuevaExpiracion = new Date(Date.now() + SESSION_TIMEOUT_MS).toISOString();
     dispatch({
@@ -50,21 +51,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       payload: { ...sesion, ultimaActividad: new Date().toISOString(), expiraEn: nuevaExpiracion },
     });
     setTiempoRestante(SESSION_TIMEOUT_MS / 1000);
-  };
+  }, [dispatch, sesion]);
 
   useEffect(() => {
     if (!sesion) return;
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const;
     events.forEach(e => window.addEventListener(e, resetTimer));
     return () => events.forEach(e => window.removeEventListener(e, resetTimer));
-  }, [sesion]);
+  }, [sesion, resetTimer]);
 
   // Countdown timer
   useEffect(() => {
-    if (!sesion) {
-      setTiempoRestante(SESSION_TIMEOUT_MS / 1000);
-      return;
-    }
+    if (!sesion) return;
     timerRef.current = setInterval(() => {
       const remaining = Math.max(
         0,
@@ -76,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [sesion]);
+  }, [logout, sesion]);
 
   const login = async (
     username: string,
@@ -140,6 +138,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// This hook intentionally shares the provider module.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');

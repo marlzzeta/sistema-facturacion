@@ -42,7 +42,8 @@ export default function Input(props: Props) {
 
   const field = (() => {
     if (rest.as === 'select') {
-      const { as: _as, options, children, ...selectRest } = rest as SelectProps & { children?: React.ReactNode };
+      const { as: omittedAs, options, children, ...selectRest } = rest as SelectProps & { children?: React.ReactNode };
+      void omittedAs;
       return (
         <select className={fieldClass} {...selectRest}>
           {options
@@ -52,10 +53,12 @@ export default function Input(props: Props) {
       );
     }
     if (rest.as === 'textarea') {
-      const { as: _as, ...taRest } = rest as TextareaProps;
+      const { as: omittedAs, ...taRest } = rest as TextareaProps;
+      void omittedAs;
       return <textarea className={fieldClass} rows={3} {...taRest} />;
     }
-    const { as: _as, ...inputRest } = rest as InputProps;
+    const { as: omittedAs, ...inputRest } = rest as InputProps;
+    void omittedAs;
     return <input className={fieldClass} {...inputRest} />;
   })();
 
