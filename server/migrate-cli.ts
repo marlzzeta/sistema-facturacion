@@ -1,8 +1,8 @@
-import { readConfig } from './config';
+import { readDatabaseConfig } from './config';
 import { migrate } from './db/migrate';
 import { postgresDatabase } from './db/postgres';
 
-const config = readConfig(process.env);
+const config = readDatabaseConfig(process.env);
 const db = postgresDatabase(config.DATABASE_URL);
 try {
   await migrate(db);
