@@ -3,12 +3,12 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import { ZodError } from 'zod';
 import { randomUUID } from 'node:crypto';
-import type { Database } from './db/database';
-import { ApiError } from './errors';
-import { login, loadSession, logout } from './auth/service';
-import { validCsrf } from './auth/crypto';
-import { listClients, createClient, updateClient } from './clients/service';
-import { clientSchema, updateClientSchema, loginSchema, type Permission, type SessionUser } from '../shared/contracts';
+import type { Database } from './db/database.js';
+import { ApiError } from './errors.js';
+import { login, loadSession, logout } from './auth/service.js';
+import { validCsrf } from './auth/crypto.js';
+import { listClients, createClient, updateClient } from './clients/service.js';
+import { clientSchema, updateClientSchema, loginSchema, type Permission, type SessionUser } from '../shared/contracts.js';
 
 declare module 'fastify' {
   interface FastifyRequest { authUser?: SessionUser; sessionToken?: string; }

@@ -1,5 +1,5 @@
-import type { Database, Sql } from './db/database';
-import { hashPassword } from './auth/crypto';
+import type { Database, Sql } from './db/database.js';
+import { hashPassword } from './auth/crypto.js';
 
 export async function seedDevelopment(db: Database): Promise<void> {
   const passwordHash = await hashPassword('Admin1234!Admin1234');

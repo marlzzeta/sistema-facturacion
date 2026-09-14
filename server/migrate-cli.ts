@@ -1,6 +1,6 @@
-import { readDatabaseConfig } from './config';
-import { migrate } from './db/migrate';
-import { postgresDatabase } from './db/postgres';
+import { readDatabaseConfig } from './config.js';
+import { migrate } from './db/migrate.js';
+import { postgresDatabase } from './db/postgres.js';
 
 const config = readDatabaseConfig(process.env);
 const db = postgresDatabase(config.DATABASE_URL);
