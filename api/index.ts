@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { createApp } from '../server/app';
-import { postgresDatabase } from '../server/db/postgres';
-import { readConfig } from '../server/config';
+import { createApp } from '../server/app.js';
+import { postgresDatabase } from '../server/db/postgres.js';
+import { readConfig } from '../server/config.js';
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 let initialization: Promise<Handler> | undefined;
