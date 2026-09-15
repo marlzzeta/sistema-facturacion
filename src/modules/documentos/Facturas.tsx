@@ -695,10 +695,10 @@ export default function FacturasPage() {
                   </div>
                 )}
                 {selectedPE && (
-                  <div className="col-span-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs space-y-1">
-                    <p><span className="font-semibold">CAI:</span> <span className="font-mono">{selectedPE.cai}</span></p>
-                    <p><span className="font-semibold">Vigencia:</span> {selectedPE.fechaVigencia}</p>
-                    <p><span className="font-semibold">Correlativos disponibles:</span> {selectedPE.rangoHasta - selectedPE.correlativoActual + 1}</p>
+                  <div className="col-span-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/60 rounded-lg text-xs text-blue-950 dark:text-blue-100 space-y-1">
+                    <p><span className="font-semibold text-blue-800 dark:text-blue-200">CAI:</span> <span className="font-mono break-all">{selectedPE.cai}</span></p>
+                    <p><span className="font-semibold text-blue-800 dark:text-blue-200">Vigencia:</span> {selectedPE.fechaVigencia}</p>
+                    <p><span className="font-semibold text-blue-800 dark:text-blue-200">Correlativos disponibles:</span> {selectedPE.rangoHasta - selectedPE.correlativoActual + 1}</p>
                   </div>
                 )}
               </div>
