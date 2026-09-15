@@ -74,6 +74,7 @@ type Action =
   | { type: 'ADD_CLIENTE'; payload: Cliente }
   | { type: 'UPDATE_CLIENTE'; payload: Cliente }
   | { type: 'DELETE_CLIENTE'; payload: string }
+  | { type: 'SET_CLIENTES'; payload: Cliente[] }
   // DatosFiscales
   | { type: 'ADD_DATOS_FISCALES'; payload: DatosFiscales }
   | { type: 'UPDATE_DATOS_FISCALES'; payload: DatosFiscales }
@@ -123,6 +124,7 @@ export const initialState: AppState = {
     telefono: '+504 2234-5678',
     resolucionFacturacion: 'SAR-2024-001234',
     pieFactura: 'Gracias por su preferencia. Este documento es una Factura Fiscal emitida conforme a las leyes de Honduras.',
+    version: 1,
   },
   establecimientos: [
     { id: ID.est1, nombre: 'Casa Matriz', tipo: 'casa_matriz', direccion: 'Col. Palmira, Edif. América, Tegucigalpa', activo: true },
@@ -217,6 +219,7 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'ADD_CLIENTE': return { ...state, clientes: [...state.clientes, action.payload] };
     case 'UPDATE_CLIENTE': return { ...state, clientes: state.clientes.map(e => e.id === action.payload.id ? action.payload : e) };
     case 'DELETE_CLIENTE': return { ...state, clientes: state.clientes.filter(e => e.id !== action.payload) };
+    case 'SET_CLIENTES': return { ...state, clientes: action.payload };
     // DatosFiscales
     case 'ADD_DATOS_FISCALES': return { ...state, datosFiscales: [...state.datosFiscales, action.payload] };
     case 'UPDATE_DATOS_FISCALES': return { ...state, datosFiscales: state.datosFiscales.map(e => e.id === action.payload.id ? action.payload : e) };

@@ -9,7 +9,8 @@ import { login, loadSession, logout } from './auth/service.js';
 import { validCsrf } from './auth/crypto.js';
 import { listClients, createClient, updateClient } from './clients/service.js';
 import { listInvoices, createInvoice } from './invoices/service.js';
-import { clientSchema, updateClientSchema, invoiceSchema, loginSchema, type Permission, type SessionUser } from '../shared/contracts.js';
+import { getCompany, getPublicBranding, updateCompany } from './company/service.js';
+import { clientSchema, companySchema, updateClientSchema, invoiceSchema, loginSchema, type Permission, type SessionUser } from '../shared/contracts.js';
 
 declare module 'fastify' {
   interface FastifyRequest { authUser?: SessionUser; sessionToken?: string; }
@@ -38,7 +39,7 @@ function setSession(reply: FastifyReply, token: string, csrfToken: string, secur
 }
 
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false, genReqId: () => randomUUID() });
+  const app = Fastify({ logger: false, genReqId: () => randomUUID(), bodyLimit: 3 * 1024 * 1024 });
   const secure = options.secureCookies ?? options.nodeEnv === 'production';
   await app.register(cookie);
   await app.register(helmet);
@@ -64,6 +65,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/ready', async (_request, reply) => { await options.db.query('SELECT 1'); return reply.send({ status: 'ready' }); });
 
+  app.get('/api/v1/branding/:slug', async (request, reply) => {
+    const params = request.params as { slug: string };
+    return reply.send({ data: await getPublicBranding(options.db, params.slug.toLowerCase()) });
+  });
+
   app.post('/api/v1/auth/login', async (request, reply) => {
     const input = loginSchema.parse(request.body);
     const result = await login(options.db, input.company, input.username, input.password, request.id);
@@ -80,6 +86,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (request.authUser) { requireCsrf(request); await logout(options.db, request.sessionToken!, request.id); }
     reply.clearCookie(sessionCookie, { path: '/' }); reply.clearCookie(csrfCookie, { path: '/' });
     return reply.send({ ok: true });
+  });
+
+  app.get('/api/v1/company', async (request, reply) => {
+    const user = requirePermission(request, 'company:read');
+    return reply.send({ data: await getCompany(options.db, user.companyId) });
+  });
+  app.patch('/api/v1/company', async (request, reply) => {
+    const user = requirePermission(request, 'company:write'); requireCsrf(request);
+    return reply.send({ data: await updateCompany(options.db, user.companyId, user.id, companySchema.parse(request.body), request.id) });
   });
 
   app.get('/api/v1/clients', async (request, reply) => {

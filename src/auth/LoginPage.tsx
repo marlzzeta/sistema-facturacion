@@ -19,6 +19,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [capsLock, setCapsLock] = useState(false);
+  const [branding, setBranding] = useState<{ razonSocial: string; logo: string | null }>({
+    razonSocial: 'Tecnologías Honduras S.A.', logo: null,
+  });
   const errorRef = useRef<HTMLDivElement>(null);
 
   const handleCapsLock = (e: KeyboardEvent) => {
@@ -32,6 +35,16 @@ export default function LoginPage() {
       window.removeEventListener('keydown', handleCapsLock);
       window.removeEventListener('keyup', handleCapsLock);
     };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/v1/branding/demo').then(async response => {
+      if (!active || !response.ok) return;
+      const body = await response.json() as { data: { razonSocial: string; logo: string | null } };
+      setBranding(body.data);
+    }).catch(() => undefined);
+    return () => { active = false; };
   }, []);
 
   const triggerShake = () => {
@@ -74,13 +87,15 @@ export default function LoginPage() {
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-8 text-center">
-              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-                <Building2 size={32} className="text-white" />
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm overflow-hidden">
+                {branding.logo
+                  ? <img src={branding.logo} alt={`Logo de ${branding.razonSocial}`} className="w-full h-full object-contain p-1" />
+                  : <Building2 size={32} className="text-white" />}
               </div>
               <h1 className="text-xl font-bold text-white leading-tight">
                 Sistema de Facturación
               </h1>
-              <p className="text-blue-200 text-sm mt-1">Tecnologías Honduras S.A.</p>
+              <p className="text-blue-200 text-sm mt-1">{branding.razonSocial}</p>
             </div>
 
             {/* Form */}
@@ -167,13 +182,9 @@ export default function LoginPage() {
           </div>
 
           {/* Footer */}
-          <div className="mt-5 text-center space-y-1">
+          <div className="mt-5 text-center">
             <p className="text-xs text-gray-400 dark:text-slate-500">
-              v1.0.0 · Tecnologías Honduras S.A.
-            </p>
-            <p className="text-xs text-gray-400 dark:text-slate-600">
-              Demo: <span className="font-mono">admin</span> /{' '}
-              <span className="font-mono">Admin1234!</span>
+              v1.0.0 · HMD Consulting
             </p>
           </div>
         </div>

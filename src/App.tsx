@@ -49,7 +49,7 @@ function AppContent() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'empresa': return <EmpresaPage />;
+      case 'empresa': return <EmpresaPage key={state.empresa.version} />;
       case 'establecimientos': return <EstablecimientosPage />;
       case 'puntos-emision': return <PuntosEmisionPage />;
       case 'empleados': return <EmpleadosPage />;

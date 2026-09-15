@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
-import type { Usuario, Sesion } from '../types';
+import type { Usuario, Sesion, Empresa } from '../types';
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const API_BASE = '/api/v1';
@@ -16,6 +16,7 @@ interface ApiSessionUser {
 }
 interface ApiSessionResponse { user: ApiSessionUser; csrfToken?: string | null; }
 interface ApiClient { id: string; version: number; nombre: string; rtn: string; dni: string; correo: string; telefono: string; direccion: string; condicionPago: 'contado' | 'credito'; limitCredito: string; exentoImpuesto: boolean; activo: boolean; }
+interface ApiCompany extends Omit<Empresa, 'logo'> { logo: string | null; }
 interface AuthContextType {
   sesion: Sesion | null;
   usuarioActual: Usuario | null;
@@ -92,11 +93,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!sesion) return;
     let activo = true;
-    void fetch(API_BASE + '/clients', { credentials: 'include' }).then(async response => {
-      if (!activo || !response.ok) return;
-      const data = await response.json() as { data: ApiClient[] };
-      state.clientes.forEach(client => dispatch({ type: 'DELETE_CLIENTE', payload: client.id }));
-      data.data.map(toLocalClient).forEach(client => dispatch({ type: 'ADD_CLIENTE', payload: client }));
+    void Promise.all([
+      fetch(API_BASE + '/clients', { credentials: 'include' }),
+      fetch(API_BASE + '/company', { credentials: 'include' }),
+    ]).then(async ([clientsResponse, companyResponse]) => {
+      if (!activo) return;
+      if (clientsResponse.ok) {
+        const data = await clientsResponse.json() as { data: ApiClient[] };
+        dispatch({ type: 'SET_CLIENTES', payload: data.data.map(toLocalClient) });
+      }
+      if (companyResponse.ok) {
+        const data = await companyResponse.json() as { data: ApiCompany };
+        dispatch({ type: 'UPDATE_EMPRESA', payload: { ...data.data, logo: data.data.logo ?? undefined } });
+      }
     }).catch(() => undefined);
     return () => { activo = false; };
   }, [dispatch, sesion]);

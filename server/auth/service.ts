@@ -3,7 +3,7 @@ import type { Database, Sql } from '../db/database.js';
 import { audit } from '../audit.js';
 import { ApiError } from '../errors.js';
 import { checkPassword, csrfFor, hashPassword, newToken, tokenHash } from './crypto.js';
-import type { Role, SessionResponse, SessionUser } from '../../shared/contracts.js';
+import { rolePermissions, type Role, type SessionResponse, type SessionUser } from '../../shared/contracts.js';
 
 const SESSION_MS = 30 * 60 * 1000;
 const ABSOLUTE_SESSION_MS = 8 * 60 * 60 * 1000;
@@ -12,10 +12,11 @@ const LOCK_MS = 15 * 60 * 1000;
 type MembershipRow = { user_id: string; username: string; display_name: string; password_hash: string; company_id: string; company_name: string; role: Role; failed_attempts: number; locked_until: string | null; user_active: boolean; membership_active: boolean };
 
 function sessionUser(row: MembershipRow): SessionUser {
-  const permissions = row.role === 'administrador'
-    ? ['clients:read', 'clients:write', 'users:read', 'users:write', 'audit:read'] as const
-    : row.role === 'facturador' ? ['clients:read', 'clients:write'] as const : ['clients:read', 'audit:read'] as const;
-  return { id: row.user_id, username: row.username, displayName: row.display_name, companyId: row.company_id, companyName: row.company_name, role: row.role, permissions };
+  return {
+    id: row.user_id, username: row.username, displayName: row.display_name,
+    companyId: row.company_id, companyName: row.company_name, role: row.role,
+    permissions: rolePermissions[row.role],
+  };
 }
 
 async function membership(db: Sql, company: string, username: string) {

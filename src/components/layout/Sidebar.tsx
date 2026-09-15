@@ -5,6 +5,7 @@ import {
   RefreshCw, Coins, CreditCard, FileSpreadsheet,
   ChevronDown, ChevronRight, Menu, X, Receipt,
 } from 'lucide-react';
+import { useStore } from '../../store';
 
 interface NavItem {
   key: string;
@@ -60,6 +61,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+  const { state } = useStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -83,14 +85,15 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
         collapsed ? 'md:justify-center md:px-2' : '',
       ].join(' ')}>
         <div className={[
-          'w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0',
+          'relative w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden',
           collapsed ? 'md:hidden' : '',
         ].join(' ')}>
           <Receipt size={18} className="text-white" />
+          {state.empresa.logo && <img src={state.empresa.logo} alt={`Logo de ${state.empresa.razonSocial}`} className="absolute inset-0 w-full h-full object-contain rounded-lg bg-white p-0.5" />}
         </div>
         <div className={['overflow-hidden', collapsed ? 'md:hidden' : ''].join(' ')}>
           <p className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-tight">SisFactura</p>
-          <p className="text-xs text-gray-500 dark:text-slate-400">Honduras</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400 truncate max-w-32" title={state.empresa.razonSocial}>{state.empresa.razonSocial}</p>
         </div>
         <button
           type="button"

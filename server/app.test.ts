@@ -29,6 +29,13 @@ describe('backend HTTP foundation', () => {
     expect(response.statusCode).toBe(401);
   });
 
+  it('serves public company branding without exposing fiscal data', async () => {
+    const response = await app.inject({ method: 'GET', url: '/api/v1/branding/demo' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toEqual({ razonSocial: 'Demo', logo: null });
+    expect(response.body).not.toContain('tax_id');
+  });
+
   it('logs in and creates a client with CSRF protection', async () => {
     const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { company: 'demo', username: 'admin', password: 'StrongPassword123!' } });
     expect(login.statusCode).toBe(200);
@@ -47,5 +54,22 @@ describe('backend HTTP foundation', () => {
   it('blocks state changes without CSRF', async () => {
     const response = await app.inject({ method: 'POST', url: '/api/v1/clients', headers: { cookie }, payload: { nombre: 'Sin CSRF' } });
     expect(response.statusCode).toBe(403);
+  });
+
+  it('persists company branding for the administrator', async () => {
+    const update = await app.inject({
+      method: 'PATCH', url: '/api/v1/company', headers: { cookie, 'x-csrf-token': csrf },
+      payload: {
+        razonSocial: 'HMD Cliente S.A.', rtn: '08011999123456', direccion: 'Tegucigalpa',
+        correo: 'info@hmd.hn', telefono: '+504 2200-0000', resolucionFacturacion: 'SAR-001',
+        pieFactura: 'Gracias por su compra.', logo: null, version: 1,
+      },
+    });
+    expect(update.statusCode).toBe(200);
+    expect(update.json().data).toMatchObject({ razonSocial: 'HMD Cliente S.A.', version: 2, logo: null });
+    const branding = await app.inject({ method: 'GET', url: '/api/v1/branding/demo' });
+    expect(branding.json().data.razonSocial).toBe('HMD Cliente S.A.');
+    const company = await app.inject({ method: 'GET', url: '/api/v1/company', headers: { cookie } });
+    expect(company.json().data.rtn).toBe('08011999123456');
   });
 });
