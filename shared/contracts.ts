@@ -2,11 +2,11 @@ import { z } from 'zod';
 
 export const roles = ['administrador', 'facturador', 'auditor'] as const;
 export type Role = typeof roles[number];
-export type Permission = 'clients:read' | 'clients:write' | 'users:read' | 'users:write' | 'audit:read';
+export type Permission = 'company:read' | 'company:write' | 'clients:read' | 'clients:write' | 'users:read' | 'users:write' | 'audit:read';
 export const rolePermissions: Record<Role, readonly Permission[]> = {
-  administrador: ['clients:read', 'clients:write', 'users:read', 'users:write', 'audit:read'],
-  facturador: ['clients:read', 'clients:write'],
-  auditor: ['clients:read', 'audit:read'],
+  administrador: ['company:read', 'company:write', 'clients:read', 'clients:write', 'users:read', 'users:write', 'audit:read'],
+  facturador: ['company:read', 'clients:read', 'clients:write'],
+  auditor: ['company:read', 'clients:read', 'audit:read'],
 };
 
 export interface SessionUser {
@@ -38,6 +38,28 @@ export const newUserSchema = z.object({
   password: z.string().min(15).max(128),
   role: z.enum(roles),
 }).strict();
+
+const logoDataUrl = z.string()
+  .max(2_800_000)
+  .regex(/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/, 'El logo debe ser PNG, JPG o WebP.');
+
+export const companySchema = z.object({
+  razonSocial: z.string().trim().min(1).max(200),
+  rtn: z.union([z.literal(''), z.string().regex(/^\d{14}$/)]).default(''),
+  direccion: z.string().trim().max(500).default(''),
+  correo: z.union([z.literal(''), z.email().max(254)]).default(''),
+  telefono: z.string().trim().max(30).default(''),
+  resolucionFacturacion: z.string().trim().max(150).default(''),
+  pieFactura: z.string().trim().max(500).default(''),
+  logo: z.union([z.null(), z.literal(''), logoDataUrl]).default(null),
+  version: z.number().int().positive(),
+}).strict();
+export type CompanyInput = z.infer<typeof companySchema>;
+export interface CompanyRecord extends Omit<CompanyInput, 'logo'> {
+  id: string;
+  logo: string | null;
+  updatedAt: string;
+}
 
 const optionalText = (max: number) => z.string().trim().max(max).default('');
 export const clientSchema = z.object({
