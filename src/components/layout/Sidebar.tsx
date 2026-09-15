@@ -78,18 +78,28 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   const sidebarContent = (
     <nav className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-200 dark:border-slate-700">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+      <div className={[
+        'flex items-center gap-3 px-4 py-4 border-b border-gray-200 dark:border-slate-700',
+        collapsed ? 'md:justify-center md:px-2' : '',
+      ].join(' ')}>
+        <div className={[
+          'w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0',
+          collapsed ? 'md:hidden' : '',
+        ].join(' ')}>
           <Receipt size={18} className="text-white" />
         </div>
-        {!collapsed && (
-          <div className="overflow-hidden">
-            <p className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-tight">SisFactura</p>
-            <p className="text-xs text-gray-500 dark:text-slate-400">Honduras</p>
-          </div>
-        )}
+        <div className={['overflow-hidden', collapsed ? 'md:hidden' : ''].join(' ')}>
+          <p className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-tight">SisFactura</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400">Honduras</p>
+        </div>
         <button
-          className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 hidden md:block"
+          type="button"
+          aria-label={collapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
+          title={collapsed ? 'Expandir menú' : 'Contraer menú'}
+          className={[
+            'text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 hidden md:flex items-center justify-center rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700',
+            collapsed ? 'md:mx-auto' : 'ml-auto',
+          ].join(' ')}
           onClick={() => setCollapsed(c => !c)}
         >
           <Menu size={18} />
