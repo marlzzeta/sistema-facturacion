@@ -62,4 +62,14 @@ export interface ClientRecord extends ClientInput {
   createdAt: string;
   updatedAt: string;
 }
+export const invoiceSchema = z.object({
+  numero: z.string().trim().min(1).max(60),
+  clienteId: z.string().uuid(),
+  fecha: z.string().date(),
+  total: z.string().regex(/^\d{1,12}(\.\d{1,2})?$/),
+  estado: z.enum(['borrador', 'emitido', 'anulado']),
+  payload: z.record(z.string(), z.unknown()),
+}).strict();
+export type InvoiceInput = z.infer<typeof invoiceSchema>;
 export interface ApiErrorBody { error: { code: string; message: string; requestId: string } }
+

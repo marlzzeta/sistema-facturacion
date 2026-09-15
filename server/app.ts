@@ -8,7 +8,8 @@ import { ApiError } from './errors.js';
 import { login, loadSession, logout } from './auth/service.js';
 import { validCsrf } from './auth/crypto.js';
 import { listClients, createClient, updateClient } from './clients/service.js';
-import { clientSchema, updateClientSchema, loginSchema, type Permission, type SessionUser } from '../shared/contracts.js';
+import { listInvoices, createInvoice } from './invoices/service.js';
+import { clientSchema, updateClientSchema, invoiceSchema, loginSchema, type Permission, type SessionUser } from '../shared/contracts.js';
 
 declare module 'fastify' {
   interface FastifyRequest { authUser?: SessionUser; sessionToken?: string; }
@@ -44,7 +45,8 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
 
   app.addHook('onRequest', async (request) => {
     const origin = request.headers.origin;
-    if (origin && origin !== options.appOrigin) throw new ApiError(403, 'ORIGIN_FORBIDDEN', 'Origen no permitido');
+    const allowedOrigins = options.appOrigin.split(',').map(value => value.trim()).filter(Boolean);
+    if (origin && !allowedOrigins.includes(origin)) throw new ApiError(403, 'ORIGIN_FORBIDDEN', 'Origen no permitido');
     const token = request.cookies[sessionCookie];
     if (token) {
       const session = await loadSession(options.db, token);
@@ -95,5 +97,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.send({ data: await updateClient(options.db, user.companyId, user.id, params.id, input.version, input, request.id) });
   });
 
+  app.get('/api/v1/invoices', async (request, reply) => {
+    const user = requirePermission(request, 'clients:read');
+    return reply.send({ data: await listInvoices(options.db, user.companyId) });
+  });
+  app.post('/api/v1/invoices', async (request, reply) => {
+    const user = requirePermission(request, 'clients:write'); requireCsrf(request);
+    return reply.code(201).send({ data: await createInvoice(options.db, user.companyId, user.id, invoiceSchema.parse(request.body), request.id) });
+  });
+
   return app;
 }
+

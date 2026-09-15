@@ -1,1 +1,120 @@
-import { useState } from 'react'; import { Plus, Pencil, Trash2 } from 'lucide-react'; import { useStore } from '../../store'; import { useAuth } from '../../auth/AuthContext'; import { useToast } from '../../components/ui/Toast'; import PageHeader from '../../components/ui/PageHeader'; import Table from '../../components/ui/Table'; import type { Column } from '../../components/ui/Table'; import Modal from '../../components/ui/Modal'; import Button from '../../components/ui/Button'; import Input from '../../components/ui/Input'; import Badge from '../../components/ui/Badge'; import type { Cliente } from '../../types'; type FormData = Omit<Cliente,'id'>; const empty: FormData={nombre:'',rtn:'',dni:'',correo:'',telefono:'',direccion:'',condicionPago:'contado',limitCredito:0,exentoImpuesto:false,activo:true}; export default function ClientesPage(){ const {state,dispatch}=useStore(); const {csrfToken}=useAuth(); const {toast}=useToast(); const [modalOpen,setModalOpen]=useState(false); const [editing,setEditing]=useState<Cliente|null>(null); const [form,setForm]=useState<FormData>(empty); const [deleteId,setDeleteId]=useState<string|null>(null); const openNew=()=>{setEditing(null);setForm(empty);setModalOpen(true)}; const openEdit=(c:Cliente)=>{setEditing(c);setForm({nombre:c.nombre,rtn:c.rtn,dni:c.dni,correo:c.correo,telefono:c.telefono,direccion:c.direccion,condicionPago:c.condicionPago,limitCredito:c.limitCredito,exentoImpuesto:c.exentoImpuesto,activo:c.activo});setModalOpen(true)}; const save=async()=>{if(!form.nombre.trim()){toast.error('El nombre es requerido');return} try{const response=await fetch(editing?'/api/v1/clients/'+editing.id:'/api/v1/clients',{method:editing?'PATCH':'POST',credentials:'include',headers:{'content-type':'application/json',...(csrfToken?{'x-csrf-token':csrfToken}:{})},body:JSON.stringify({...form,limitCredito:Number(form.limitCredito).toFixed(2),...(editing?{version:(editing as Cliente & {version?:number}).version??1}:{})})}); if(!response.ok)throw new Error('No se pudo guardar el cliente.'); const result=await response.json() as {data:Cliente&{version:number;limitCredito:string}}; const saved={...result.data,limitCredito:Number(result.data.limitCredito)}; dispatch({type:editing?'UPDATE_CLIENTE':'ADD_CLIENTE',payload:saved}); toast.success(editing?'Cliente actualizado':'Cliente creado');setModalOpen(false)}catch(e){toast.error(e instanceof Error?e.message:'No se pudo guardar el cliente.')}}; const deactivate=async()=>{if(!deleteId)return;const c=state.clientes.find(x=>x.id===deleteId);if(!c)return;try{const response=await fetch('/api/v1/clients/'+deleteId,{method:'PATCH',credentials:'include',headers:{'content-type':'application/json',...(csrfToken?{'x-csrf-token':csrfToken}:{})},body:JSON.stringify({...c,limitCredito:Number(c.limitCredito).toFixed(2),activo:false,version:(c as Cliente & {version?:number}).version??1})});if(!response.ok)throw new Error('No se pudo desactivar el cliente.');const result=await response.json() as {data:Cliente&{limitCredito:string}};dispatch({type:'UPDATE_CLIENTE',payload:{...result.data,limitCredito:Number(result.data.limitCredito)}});toast.success('Cliente desactivado');setDeleteId(null)}catch(e){toast.error(e instanceof Error?e.message:'No se pudo desactivar el cliente.')}}; const columns:Column<Cliente>[]=[{key:'nombre',header:'Nombre'},{key:'rtn',header:'RTN / DNI',render:r=>r.rtn||r.dni},{key:'telefono',header:'Teléfono'},{key:'condicionPago',header:'Condición',render:r=><Badge variant={r.condicionPago==='credito'?'warning':'default'}>{r.condicionPago==='credito'?'Crédito':'Contado'}</Badge>},{key:'activo',header:'Estado',render:r=><Badge variant={r.activo?'success':'danger'}>{r.activo?'Activo':'Inactivo'}</Badge>},{key:'actions',header:'Acciones',render:r=><div className='flex gap-1'><Button variant='ghost' size='sm' icon={<Pencil size={14}/>} onClick={()=>openEdit(r)}>Editar</Button><Button variant='ghost' size='sm' icon={<Trash2 size={14}/>} onClick={()=>setDeleteId(r.id)} className='text-red-500'>Desactivar</Button></div>}]; return <div><PageHeader title='Clientes' subtitle='Administre los clientes de la empresa' action={<Button icon={<Plus size={16}/>} onClick={openNew}>Nuevo</Button>}/><Table columns={columns} data={state.clientes}/><Modal open={modalOpen} onClose={()=>setModalOpen(false)} title={editing?'Editar Cliente':'Nuevo Cliente'} size='xl' footer={<><Button variant='secondary' onClick={()=>setModalOpen(false)}>Cancelar</Button><Button onClick={save}>Guardar</Button></>}><div className='grid grid-cols-2 gap-4'><Input as='input' label='Nombre / Razón Social' value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))} wrapperClassName='col-span-2'/><Input as='input' label='RTN' value={form.rtn} onChange={e=>setForm(p=>({...p,rtn:e.target.value}))}/><Input as='input' label='DNI' value={form.dni} onChange={e=>setForm(p=>({...p,dni:e.target.value}))}/><Input as='input' type='email' label='Correo' value={form.correo} onChange={e=>setForm(p=>({...p,correo:e.target.value}))}/><Input as='input' label='Teléfono' value={form.telefono} onChange={e=>setForm(p=>({...p,telefono:e.target.value}))}/><Input as='textarea' label='Dirección' value={form.direccion} onChange={e=>setForm(p=>({...p,direccion:e.target.value}))} wrapperClassName='col-span-2'/><Input as='select' label='Condición de Pago' value={form.condicionPago} onChange={e=>setForm(p=>({...p,condicionPago:e.target.value as Cliente['condicionPago']}))} options={[{value:'contado',label:'Contado'},{value:'credito',label:'Crédito'}]}/><Input as='input' type='number' label='Límite de Crédito (L.)' value={form.limitCredito} onChange={e=>setForm(p=>({...p,limitCredito:Number(e.target.value)}))}/><label className='col-span-2 flex items-center gap-2'><input type='checkbox' checked={form.exentoImpuesto} onChange={e=>setForm(p=>({...p,exentoImpuesto:e.target.checked}))}/>Exento de Impuestos</label></div></Modal><Modal open={!!deleteId} onClose={()=>setDeleteId(null)} title='Confirmar desactivación' footer={<><Button variant='secondary' onClick={()=>setDeleteId(null)}>Cancelar</Button><Button variant='danger' onClick={deactivate}>Desactivar</Button></>}><p>¿Desea desactivar este cliente?</p></Modal></div> }
+import { useState } from 'react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { useStore } from '../../store';
+import { useAuth } from '../../auth/AuthContext';
+import { useToast } from '../../components/ui/Toast';
+import PageHeader from '../../components/ui/PageHeader';
+import Table from '../../components/ui/Table';
+import type { Column } from '../../components/ui/Table';
+import Modal from '../../components/ui/Modal';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import Badge from '../../components/ui/Badge';
+import type { Cliente } from '../../types';
+
+type FormData = Omit<Cliente, 'id'>;
+const empty: FormData = { nombre: '', rtn: '', dni: '', correo: '', telefono: '', direccion: '', condicionPago: 'contado', limitCredito: 0, exentoImpuesto: false, activo: true };
+
+export default function ClientesPage() {
+  const { state, dispatch } = useStore();
+  const { csrfToken } = useAuth();
+  const { toast } = useToast();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Cliente | null>(null);
+  const [form, setForm] = useState<FormData>(empty);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const openNew = () => { setEditing(null); setForm(empty); setModalOpen(true); };
+  const openEdit = (c: Cliente) => { setEditing(c); setForm({ nombre: c.nombre, rtn: c.rtn, dni: c.dni, correo: c.correo, telefono: c.telefono, direccion: c.direccion, condicionPago: c.condicionPago, limitCredito: c.limitCredito, exentoImpuesto: c.exentoImpuesto, activo: c.activo }); setModalOpen(true); };
+
+  const handleSave = async () => {
+    if (!form.nombre.trim()) { toast.error('El nombre es requerido'); return; }
+    const headers = { 'content-type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) };
+    try {
+      const response = await fetch(editing ? `/api/v1/clients/${editing.id}` : '/api/v1/clients', {
+        method: editing ? 'PATCH' : 'POST', credentials: 'include', headers,
+        body: JSON.stringify({ ...form, limitCredito: Number(form.limitCredito).toFixed(2), ...(editing ? { version: (editing as Cliente & { version?: number }).version ?? 1 } : {}) }),
+      });
+      if (!response.ok) throw new Error('No se pudo guardar el cliente.');
+      const result = await response.json() as { data: Cliente & { version: number; limitCredito: string } };
+      const saved = { ...result.data, limitCredito: Number(result.data.limitCredito) };
+      dispatch({ type: editing ? 'UPDATE_CLIENTE' : 'ADD_CLIENTE', payload: saved });
+      toast.success(editing ? 'Cliente actualizado' : 'Cliente creado');
+      setModalOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo guardar el cliente.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const cliente = state.clientes.find(item => item.id === deleteId);
+    if (!cliente) return;
+    try {
+      const response = await fetch(`/api/v1/clients/${deleteId}`, { method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) }, body: JSON.stringify({ ...cliente, limitCredito: Number(cliente.limitCredito).toFixed(2), activo: false, version: (cliente as Cliente & { version?: number }).version ?? 1 }) });
+      if (!response.ok) throw new Error('No se pudo desactivar el cliente.');
+      const result = await response.json() as { data: Cliente & { limitCredito: string } };
+      dispatch({ type: 'UPDATE_CLIENTE', payload: { ...result.data, limitCredito: Number(result.data.limitCredito) } });
+      toast.success('Cliente desactivado');
+      setDeleteId(null);
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'No se pudo desactivar el cliente.'); }
+  };
+
+  const columns: Column<Cliente>[] = [
+    { key: 'nombre', header: 'Nombre' },
+    { key: 'rtn', header: 'RTN / DNI', render: r => r.rtn || r.dni },
+    { key: 'telefono', header: 'Teléfono' },
+    { key: 'condicionPago', header: 'Condición', render: r => <Badge variant={r.condicionPago === 'credito' ? 'warning' : 'default'}>{r.condicionPago === 'credito' ? 'Crédito' : 'Contado'}</Badge> },
+    { key: 'exentoImpuesto', header: 'Exento', render: r => r.exentoImpuesto ? <Badge variant="success">Sí</Badge> : <Badge>No</Badge> },
+    { key: 'activo', header: 'Estado', render: r => <Badge variant={r.activo ? 'success' : 'danger'}>{r.activo ? 'Activo' : 'Inactivo'}</Badge> },
+    {
+      key: 'actions', header: 'Acciones',
+      render: r => (
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => openEdit(r)}>Editar</Button>
+          <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => setDeleteId(r.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Eliminar</Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <PageHeader title="Clientes" subtitle="Administre los clientes de la empresa" action={<Button icon={<Plus size={16} />} onClick={openNew}>Nuevo</Button>} />
+      <Table columns={columns} data={state.clientes} />
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Cliente' : 'Nuevo Cliente'} size="xl"
+        footer={<><Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button><Button onClick={handleSave}>Guardar</Button></>}
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <Input as="input" label="Nombre / Razón Social" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} wrapperClassName="col-span-2" />
+          <Input as="input" label="RTN" value={form.rtn} onChange={e => setForm(p => ({ ...p, rtn: e.target.value }))} placeholder="00000000000000" />
+          <Input as="input" label="DNI" value={form.dni} onChange={e => setForm(p => ({ ...p, dni: e.target.value }))} placeholder="0000-0000-00000" />
+          <Input as="input" type="email" label="Correo" value={form.correo} onChange={e => setForm(p => ({ ...p, correo: e.target.value }))} />
+          <Input as="input" label="Teléfono" value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))} />
+          <Input as="textarea" label="Dirección" value={form.direccion} onChange={e => setForm(p => ({ ...p, direccion: e.target.value }))} wrapperClassName="col-span-2" />
+          <Input as="select" label="Condición de Pago" value={form.condicionPago} onChange={e => setForm(p => ({ ...p, condicionPago: e.target.value as Cliente['condicionPago'] }))}
+            options={[{ value: 'contado', label: 'Contado' }, { value: 'credito', label: 'Crédito' }]} />
+          <Input as="input" type="number" label="Límite de Crédito (L.)" value={form.limitCredito} onChange={e => setForm(p => ({ ...p, limitCredito: Number(e.target.value) }))} />
+          <div className="col-span-2 flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.exentoImpuesto} onChange={e => setForm(p => ({ ...p, exentoImpuesto: e.target.checked }))} className="rounded border-gray-300 text-blue-600" />
+              <span className="text-sm text-gray-700 dark:text-slate-300">Exento de Impuestos</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} className="rounded border-gray-300 text-blue-600" />
+              <span className="text-sm text-gray-700 dark:text-slate-300">Activo</span>
+            </label>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Confirmar Eliminación"
+        footer={<><Button variant="secondary" onClick={() => setDeleteId(null)}>Cancelar</Button><Button variant="danger" onClick={handleDelete}>Desactivar</Button></>}
+      >
+        <p className="text-gray-600 dark:text-slate-300">¿Desea eliminar este cliente?</p>
+      </Modal>
+    </div>
+  );
+}
+
