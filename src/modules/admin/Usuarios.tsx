@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Lock } from 'lucide-react';
-import bcryptjs from 'bcryptjs';
-import { useStore, uuid } from '../../store';
+import { useStore } from '../../store';
+import { useAuth } from '../../auth/AuthContext';
+import { apiUserToLocal, type ApiUser } from '../../auth/user-mapper';
 import { useToast } from '../../components/ui/Toast';
 import PageHeader from '../../components/ui/PageHeader';
 import Table from '../../components/ui/Table';
@@ -44,11 +45,13 @@ function getPasswordStrength(pw: string): { label: string; color: string; width:
 
 export default function UsuariosPage() {
   const { state, dispatch } = useStore();
+  const { csrfToken } = useAuth();
   const { toast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Usuario | null>(null);
   const [form, setForm] = useState<FormData>(empty);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const openNew = () => {
     setEditing(null);
@@ -72,7 +75,14 @@ export default function UsuariosPage() {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const roleFor = (rolId: string) => rolId === 'rol00001' ? 'administrador' : rolId === 'rol00002' ? 'facturador' : 'auditor';
+
+  const apiError = async (response: Response) => {
+    try { return ((await response.json()) as { error?: { message?: string } }).error?.message ?? 'No se pudo guardar el usuario.'; }
+    catch { return 'No se pudo guardar el usuario.'; }
+  };
+
+  const handleSave = async () => {
     if (!form.username.trim() || !form.empleadoId || !form.rolId) {
       toast.error('Todos los campos son requeridos');
       return;
@@ -81,45 +91,32 @@ export default function UsuariosPage() {
       toast.error('La contraseña es requerida para nuevos usuarios');
       return;
     }
-
-    if (editing) {
-      const passwordHash = form.password
-        ? bcryptjs.hashSync(form.password, 10)
-        : editing.passwordHash;
-      dispatch({
-        type: 'UPDATE_USUARIO',
-        payload: {
-          ...editing,
-          empleadoId: form.empleadoId,
-          username: form.username,
-          rolId: form.rolId,
-          activo: form.activo,
-          passwordHash,
-        },
+    if (form.password && form.password.length < 15) { toast.error('La contraseña debe tener al menos 15 caracteres'); return; }
+    const employee = state.empleados.find(item => item.id === form.empleadoId);
+    if (!employee) { toast.error('Empleado no encontrado'); return; }
+    setSaving(true);
+    try {
+      const response = await fetch(editing ? `/api/v1/users/${editing.id}` : '/api/v1/users', {
+        method: editing ? 'PATCH' : 'POST', credentials: 'include',
+        headers: { 'content-type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) },
+        body: JSON.stringify({
+          username: form.username.trim().toLowerCase(), displayName: `${employee.nombre} ${employee.apellido}`.trim(),
+          password: form.password, role: roleFor(form.rolId), employeeId: form.empleadoId,
+          active: form.activo, ...(editing ? { version: editing.version } : {}),
+        }),
       });
-      toast.success('Usuario actualizado');
-    } else {
-      const passwordHash = bcryptjs.hashSync(form.password, 10);
-      dispatch({
-        type: 'ADD_USUARIO',
-        payload: {
-          id: uuid(),
-          empleadoId: form.empleadoId,
-          username: form.username,
-          rolId: form.rolId,
-          activo: form.activo,
-          passwordHash,
-          intentosFallidos: 0,
-        },
-      });
-      toast.success('Usuario creado');
-    }
-    setModalOpen(false);
+      if (!response.ok) { toast.error(await apiError(response)); return; }
+      const body = await response.json() as { data: ApiUser };
+      dispatch({ type: editing ? 'UPDATE_USUARIO' : 'ADD_USUARIO', payload: apiUserToLocal(body.data) });
+      toast.success(editing ? 'Usuario actualizado' : 'Usuario creado');
+      setModalOpen(false);
+    } catch { toast.error('No se pudo conectar con el servidor.'); }
+    finally { setSaving(false); }
   };
 
   const getEmpNombre = (id: string) => {
     const e = state.empleados.find(x => x.id === id);
-    return e ? `${e.nombre} ${e.apellido}` : id;
+    return e ? `${e.nombre} ${e.apellido}` : state.usuarios.find(user => user.empleadoId === id)?.displayName ?? id;
   };
   const getRolNombre = (id: string) => state.roles.find(r => r.id === id)?.nombre ?? id;
 
@@ -214,7 +211,7 @@ export default function UsuariosPage() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>Guardar</Button>
+            <Button onClick={() => void handleSave()} disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</Button>
           </>
         }
       >
@@ -249,7 +246,7 @@ export default function UsuariosPage() {
               label={editing ? 'Nueva contraseña (dejar vacío para conservar)' : 'Contraseña'}
               value={form.password}
               onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-              placeholder={editing ? '••••••••' : 'Mínimo 8 caracteres'}
+              placeholder={editing ? '•••••••••••••••' : 'Mínimo 15 caracteres'}
             />
             {form.password && (
               <div className="mt-2 space-y-1">
@@ -295,18 +292,24 @@ export default function UsuariosPage() {
               variant="danger"
               onClick={() => {
                 if (deleteId) {
-                  dispatch({ type: 'DELETE_USUARIO', payload: deleteId });
-                  toast.success('Eliminado');
-                  setDeleteId(null);
+                  void fetch(`/api/v1/users/${deleteId}`, {
+                    method: 'DELETE', credentials: 'include',
+                    headers: csrfToken ? { 'x-csrf-token': csrfToken } : {},
+                  }).then(async response => {
+                    if (!response.ok) { toast.error(await apiError(response)); return; }
+                    const body = await response.json() as { data: ApiUser };
+                    dispatch({ type: 'UPDATE_USUARIO', payload: apiUserToLocal(body.data) });
+                    toast.success('Usuario desactivado'); setDeleteId(null);
+                  });
                 }
               }}
             >
-              Eliminar
+              Desactivar
             </Button>
           </>
         }
       >
-        <p className="text-gray-600 dark:text-slate-300">¿Desea eliminar este usuario?</p>
+        <p className="text-gray-600 dark:text-slate-300">¿Desea desactivar este usuario? No podrá iniciar sesión hasta que vuelva a activarlo.</p>
       </Modal>
     </div>
   );
