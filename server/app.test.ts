@@ -36,7 +36,7 @@ describe('backend HTTP foundation', () => {
     expect(response.body).not.toContain('tax_id');
   });
 
-  it('logs in and creates a client with CSRF protection', async () => {
+  it('allows same-host Preview login but rejects foreign origins', async () => { const payload = { company: 'demo', username: 'admin', password: 'StrongPassword123!' }; const host = 'preview.example.vercel.app'; const accepted = await app.inject({ method: 'POST', url: '/api/v1/auth/login', headers: { host, origin: `https://${host}` }, payload }); expect(accepted.statusCode).toBe(200); const rejected = await app.inject({ method: 'POST', url: '/api/v1/auth/login', headers: { host, origin: 'https://foreign.example' }, payload }); expect(rejected.statusCode).toBe(403); expect(rejected.json().error.code).toBe('ORIGIN_FORBIDDEN'); }); it('logs in and creates a client with CSRF protection', async () => {
     const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { company: 'demo', username: 'admin', password: 'StrongPassword123!' } });
     expect(login.statusCode).toBe(200);
     const setCookie = login.headers['set-cookie'];
