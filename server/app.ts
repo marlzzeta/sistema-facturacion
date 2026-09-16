@@ -48,7 +48,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.addHook('onRequest', async (request) => {
     const origin = request.headers.origin;
     const allowedOrigins = options.appOrigin.split(',').map(value => value.trim()).filter(Boolean);
-    if (origin && !allowedOrigins.includes(origin)) throw new ApiError(403, 'ORIGIN_FORBIDDEN', 'Origen no permitido');
+    const sameOrigin = request.headers.host && origin === `https://${request.headers.host}`; if (origin && !allowedOrigins.includes(origin) && !sameOrigin) throw new ApiError(403, 'ORIGIN_FORBIDDEN', 'Origen no permitido');
     const token = request.cookies[sessionCookie];
     if (token) {
       const session = await loadSession(options.db, token);
