@@ -70,6 +70,8 @@ type Action =
   | { type: 'ADD_USUARIO'; payload: Usuario }
   | { type: 'UPDATE_USUARIO'; payload: Usuario }
   | { type: 'DELETE_USUARIO'; payload: string }
+  | { type: 'SET_USUARIOS'; payload: Usuario[] }
+  | { type: 'SET_WORKSPACE'; payload: WorkspaceState }
   // Clientes
   | { type: 'ADD_CLIENTE'; payload: Cliente }
   | { type: 'UPDATE_CLIENTE'; payload: Cliente }
@@ -106,6 +108,7 @@ type Action =
   // Facturas
   | { type: 'ADD_FACTURA'; payload: Factura }
   | { type: 'UPDATE_FACTURA'; payload: Factura }
+  | { type: 'SET_FACTURAS'; payload: Factura[] }
   | { type: 'EMIT_FACTURA'; payload: Factura }
   | { type: 'ANULAR_FACTURA'; payload: string }
   // UI
@@ -145,8 +148,8 @@ export const initialState: AppState = {
     { id: ID.emp2, nombre: 'Ana', apellido: 'Rivera', correo: 'ana.rivera@techonduras.hn', cargo: 'Vendedora', activo: true },
   ],
   usuarios: [
-    { id: ID.usr1, empleadoId: ID.emp1, username: 'admin', rolId: ID.rol1, activo: true, passwordHash: '$2b$10$9xhPWmbXgOLb9U0.oAFskeGlAnoKjKNji8IvR12e.bFRRoJS1BnOi', intentosFallidos: 0 },
-    { id: ID.usr2, empleadoId: ID.emp2, username: 'vendedor', rolId: ID.rol2, activo: true, passwordHash: '$2b$10$QN3XREgfo3ug.HnOJ4IUEOK8QVNARKb5Y23y3sHB9ylVlD62oOuE6', intentosFallidos: 0 },
+    { id: ID.usr1, empleadoId: ID.emp1, displayName: 'Carlos Mendoza', username: 'admin', rolId: ID.rol1, activo: true, version: 1, intentosFallidos: 0 },
+    { id: ID.usr2, empleadoId: ID.emp2, displayName: 'Ana Rivera', username: 'vendedor', rolId: ID.rol2, activo: true, version: 1, intentosFallidos: 0 },
   ],
   clientes: [
     { id: ID.cli1, nombre: 'Supermercados El Ahorro S.A.', rtn: '08011987123456', dni: '', correo: 'compras@elahorro.hn', telefono: '2225-1234', direccion: 'Col. Kennedy, Tegucigalpa', condicionPago: 'credito', limitCredito: 50000, exentoImpuesto: false, activo: true },
@@ -215,6 +218,8 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'ADD_USUARIO': return { ...state, usuarios: [...state.usuarios, action.payload] };
     case 'UPDATE_USUARIO': return { ...state, usuarios: state.usuarios.map(e => e.id === action.payload.id ? action.payload : e) };
     case 'DELETE_USUARIO': return { ...state, usuarios: state.usuarios.filter(e => e.id !== action.payload) };
+    case 'SET_USUARIOS': return { ...state, usuarios: action.payload };
+    case 'SET_WORKSPACE': return { ...state, ...action.payload };
     // Clientes
     case 'ADD_CLIENTE': return { ...state, clientes: [...state.clientes, action.payload] };
     case 'UPDATE_CLIENTE': return { ...state, clientes: state.clientes.map(e => e.id === action.payload.id ? action.payload : e) };
@@ -251,6 +256,7 @@ export function reducer(state: AppState, action: Action): AppState {
     // Facturas
     case 'ADD_FACTURA': return { ...state, facturas: [...state.facturas, action.payload] };
     case 'UPDATE_FACTURA': return { ...state, facturas: state.facturas.map(f => f.id === action.payload.id ? action.payload : f) };
+    case 'SET_FACTURAS': return { ...state, facturas: action.payload };
     case 'EMIT_FACTURA': {
       const factura = action.payload;
       // Deduct stock from articulos
@@ -298,6 +304,26 @@ export function useStore() {
   const ctx = useContext(StoreContext);
   if (!ctx) throw new Error('useStore must be used within StoreProvider');
   return ctx;
+}
+
+export type WorkspaceState = Pick<AppState,
+  'establecimientos' | 'puntosEmision' | 'roles' | 'empleados' | 'datosFiscales' |
+  'tiposImpuesto' | 'tiposRetencion' | 'tiposMoneda' | 'formasPago' | 'articulos' | 'servicios'>;
+
+export function workspaceSnapshot(state: AppState): WorkspaceState {
+  return {
+    establecimientos: state.establecimientos,
+    puntosEmision: state.puntosEmision,
+    roles: state.roles,
+    empleados: state.empleados,
+    datosFiscales: state.datosFiscales,
+    tiposImpuesto: state.tiposImpuesto,
+    tiposRetencion: state.tiposRetencion,
+    tiposMoneda: state.tiposMoneda,
+    formasPago: state.formasPago,
+    articulos: state.articulos,
+    servicios: state.servicios,
+  };
 }
 
 export { uuid };
