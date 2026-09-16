@@ -36,7 +36,7 @@ describe('backend HTTP foundation', () => {
     expect(response.body).not.toContain('tax_id');
   });
 
-  it('logs in and creates a client with CSRF protection', async () => {
+  it('allows same-host Preview login but rejects foreign origins', async () => { const payload = { company: 'demo', username: 'admin', password: 'StrongPassword123!' }; const host = 'preview.example.vercel.app'; const accepted = await app.inject({ method: 'POST', url: '/api/v1/auth/login', headers: { host, origin: `https://${host}` }, payload }); expect(accepted.statusCode).toBe(200); const rejected = await app.inject({ method: 'POST', url: '/api/v1/auth/login', headers: { host, origin: 'https://foreign.example' }, payload }); expect(rejected.statusCode).toBe(403); expect(rejected.json().error.code).toBe('ORIGIN_FORBIDDEN'); }); it('logs in and creates a client with CSRF protection', async () => {
     const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { company: 'demo', username: 'admin', password: 'StrongPassword123!' } });
     expect(login.statusCode).toBe(200);
     const setCookie = login.headers['set-cookie'];
@@ -71,5 +71,54 @@ describe('backend HTTP foundation', () => {
     expect(branding.json().data.razonSocial).toBe('HMD Cliente S.A.');
     const company = await app.inject({ method: 'GET', url: '/api/v1/company', headers: { cookie } });
     expect(company.json().data.rtn).toBe('08011999123456');
+  });
+
+  it('creates a real user that can authenticate', async () => {
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/users', headers: { cookie, 'x-csrf-token': csrf },
+      payload: { username: 'mvillalobos', displayName: 'Marcela Villalobos', password: 'MarcelaSecure123!', role: 'administrador', employeeId: 'emp00003', active: true },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().data).toMatchObject({ username: 'mvillalobos', employeeId: 'emp00003', version: 1 });
+    expect(created.body).not.toContain('password');
+    const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { company: 'demo', username: 'mvillalobos', password: 'MarcelaSecure123!' } });
+    expect(login.statusCode).toBe(200);
+    const disabled = await app.inject({ method: 'DELETE', url: `/api/v1/users/${created.json().data.id}`, headers: { cookie, 'x-csrf-token': csrf } });
+    expect(disabled.statusCode).toBe(200);
+    expect(disabled.json().data.active).toBe(false);
+    const rejected = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { company: 'demo', username: 'mvillalobos', password: 'MarcelaSecure123!' } });
+    expect(rejected.statusCode).toBe(401);
+  });
+
+  it('persists administrative workspace data with optimistic locking', async () => {
+    const data = {
+      establecimientos: [], puntosEmision: [], roles: [], empleados: [{ id: 'emp00003', nombre: 'Marcela' }],
+      datosFiscales: [], tiposImpuesto: [], tiposRetencion: [], tiposMoneda: [], formasPago: [], articulos: [], servicios: [],
+    };
+    const created = await app.inject({ method: 'PUT', url: '/api/v1/workspace', headers: { cookie, 'x-csrf-token': csrf }, payload: { data, version: 0 } });
+    expect(created.statusCode).toBe(200);
+    expect(created.json().version).toBe(1);
+    const loaded = await app.inject({ method: 'GET', url: '/api/v1/workspace', headers: { cookie } });
+    expect(loaded.statusCode).toBe(200);
+    expect(loaded.json().data.empleados[0].nombre).toBe('Marcela');
+    const stale = await app.inject({ method: 'PUT', url: '/api/v1/workspace', headers: { cookie, 'x-csrf-token': csrf }, payload: { data, version: 0 } });
+    expect(stale.statusCode).toBe(409);
+  });
+
+  it('persists and cancels invoices using the server id', async () => {
+    const clients = await app.inject({ method: 'GET', url: '/api/v1/clients', headers: { cookie } });
+    const clienteId = clients.json().data[0].id as string;
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/invoices', headers: { cookie, 'x-csrf-token': csrf },
+      payload: { numero: '001-001-01-00000001', clienteId, fecha: '2026-09-15', total: '100.00', estado: 'emitido', payload: { id: 'local-id', numero: '001-001-01-00000001', estado: 'emitido' } },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().data.id).not.toBe('local-id');
+    const id = created.json().data.id as string;
+    const canceled = await app.inject({ method: 'PATCH', url: `/api/v1/invoices/${id}/cancel`, headers: { cookie, 'x-csrf-token': csrf } });
+    expect(canceled.statusCode).toBe(200);
+    expect(canceled.json().data.estado).toBe('anulado');
+    const listed = await app.inject({ method: 'GET', url: '/api/v1/invoices', headers: { cookie } });
+    expect(listed.json().data[0].estado).toBe('anulado');
   });
 });

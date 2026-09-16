@@ -487,7 +487,7 @@ export default function FacturasPage() {
     void fetch('/api/v1/invoices', { credentials: 'include' }).then(async response => {
       if (!activo || !response.ok) return;
       const result = await response.json() as { data: Factura[] };
-      result.data.forEach(factura => dispatch({ type: 'ADD_FACTURA', payload: factura }));
+      dispatch({ type: 'SET_FACTURAS', payload: result.data });
     }).catch(() => undefined);
     return () => { activo = false; };
   }, [dispatch, sesion]);
@@ -951,9 +951,15 @@ export default function FacturasPage() {
             <Button variant="secondary" onClick={() => setAnularId(null)}>Cancelar</Button>
             <Button variant="danger" icon={<Ban size={16} />} onClick={() => {
               if (anularId) {
-                dispatch({ type: 'ANULAR_FACTURA', payload: anularId });
-                toast.success('Factura anulada');
-                setAnularId(null);
+                void fetch(`/api/v1/invoices/${anularId}/cancel`, {
+                  method: 'PATCH', credentials: 'include',
+                  headers: csrfToken ? { 'x-csrf-token': csrfToken } : {},
+                }).then(async response => {
+                  if (!response.ok) { toast.error('No se pudo anular la factura.'); return; }
+                  const result = await response.json() as { data: Factura };
+                  dispatch({ type: 'UPDATE_FACTURA', payload: result.data });
+                  toast.success('Factura anulada'); setAnularId(null);
+                }).catch(() => toast.error('No se pudo conectar con el servidor.'));
               }
             }}>Confirmar Anulación</Button>
           </>

@@ -5,12 +5,13 @@ import { ZodError } from 'zod';
 import { randomUUID } from 'node:crypto';
 import type { Database } from './db/database.js';
 import { ApiError } from './errors.js';
-import { login, loadSession, logout } from './auth/service.js';
+import { createUser, deleteUser, listUsers, login, loadSession, logout, updateUser } from './auth/service.js';
 import { validCsrf } from './auth/crypto.js';
 import { listClients, createClient, updateClient } from './clients/service.js';
-import { listInvoices, createInvoice } from './invoices/service.js';
+import { cancelInvoice, listInvoices, createInvoice } from './invoices/service.js';
 import { getCompany, getPublicBranding, updateCompany } from './company/service.js';
-import { clientSchema, companySchema, updateClientSchema, invoiceSchema, loginSchema, type Permission, type SessionUser } from '../shared/contracts.js';
+import { getWorkspace, updateWorkspace } from './workspace/service.js';
+import { clientSchema, companySchema, updateClientSchema, invoiceSchema, loginSchema, newUserSchema, updateUserSchema, updateWorkspaceSchema, type Permission, type SessionUser } from '../shared/contracts.js';
 
 declare module 'fastify' {
   interface FastifyRequest { authUser?: SessionUser; sessionToken?: string; }
@@ -47,7 +48,7 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.addHook('onRequest', async (request) => {
     const origin = request.headers.origin;
     const allowedOrigins = options.appOrigin.split(',').map(value => value.trim()).filter(Boolean);
-    if (origin && !allowedOrigins.includes(origin)) throw new ApiError(403, 'ORIGIN_FORBIDDEN', 'Origen no permitido');
+    const sameOrigin = request.headers.host && origin === `https://${request.headers.host}`; if (origin && !allowedOrigins.includes(origin) && !sameOrigin) throw new ApiError(403, 'ORIGIN_FORBIDDEN', 'Origen no permitido');
     const token = request.cookies[sessionCookie];
     if (token) {
       const session = await loadSession(options.db, token);
@@ -88,6 +89,36 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     return reply.send({ ok: true });
   });
 
+  app.get('/api/v1/users', async (request, reply) => {
+    const user = requirePermission(request, 'users:read');
+    return reply.send({ data: await listUsers(options.db, user.companyId) });
+  });
+  app.post('/api/v1/users', async (request, reply) => {
+    const user = requirePermission(request, 'users:write'); requireCsrf(request);
+    const input = newUserSchema.parse(request.body);
+    return reply.code(201).send({ data: await createUser(options.db, user.id, { ...input, companyId: user.companyId }, request.id) });
+  });
+  app.patch('/api/v1/users/:id', async (request, reply) => {
+    const user = requirePermission(request, 'users:write'); requireCsrf(request);
+    const params = request.params as { id: string };
+    return reply.send({ data: await updateUser(options.db, user.companyId, user.id, params.id, updateUserSchema.parse(request.body), request.id) });
+  });
+  app.delete('/api/v1/users/:id', async (request, reply) => {
+    const user = requirePermission(request, 'users:write'); requireCsrf(request);
+    const params = request.params as { id: string };
+    return reply.send({ data: await deleteUser(options.db, user.companyId, user.id, params.id, request.id) });
+  });
+
+  app.get('/api/v1/workspace', async (request, reply) => {
+    const user = requirePermission(request, 'workspace:read');
+    return reply.send(await getWorkspace(options.db, user.companyId));
+  });
+  app.put('/api/v1/workspace', async (request, reply) => {
+    const user = requirePermission(request, 'workspace:write'); requireCsrf(request);
+    const input = updateWorkspaceSchema.parse(request.body);
+    return reply.send(await updateWorkspace(options.db, user.companyId, user.id, input.data, input.version, request.id));
+  });
+
   app.get('/api/v1/company', async (request, reply) => {
     const user = requirePermission(request, 'company:read');
     return reply.send({ data: await getCompany(options.db, user.companyId) });
@@ -120,7 +151,11 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     const user = requirePermission(request, 'clients:write'); requireCsrf(request);
     return reply.code(201).send({ data: await createInvoice(options.db, user.companyId, user.id, invoiceSchema.parse(request.body), request.id) });
   });
+  app.patch('/api/v1/invoices/:id/cancel', async (request, reply) => {
+    const user = requirePermission(request, 'clients:write'); requireCsrf(request);
+    const params = request.params as { id: string };
+    return reply.send({ data: await cancelInvoice(options.db, user.companyId, user.id, params.id, request.id) });
+  });
 
   return app;
 }
-
