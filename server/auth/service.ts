@@ -3,7 +3,7 @@ import type { Database, Sql } from '../db/database.js';
 import { audit } from '../audit.js';
 import { ApiError } from '../errors.js';
 import { checkPassword, csrfFor, hashPassword, newToken, tokenHash } from './crypto.js';
-import { rolePermissions, type Role, type SessionResponse, type SessionUser } from '../../shared/contracts.js';
+import { rolePermissions, type Role, type SessionResponse, type SessionUser, type UserRecord } from '../../shared/contracts.js';
 
 const SESSION_MS = 30 * 60 * 1000;
 const ABSOLUTE_SESSION_MS = 8 * 60 * 60 * 1000;
@@ -24,14 +24,72 @@ async function membership(db: Sql, company: string, username: string) {
   return result.rows[0];
 }
 
-export async function createUser(db: Database, input: { companyId: string; username: string; displayName: string; password: string; role: Role }) {
+type UserRow = { id: string; username: string; display_name: string; employee_id: string | null; role: Role; active: boolean; failed_attempts: number; locked_until: string | null; last_login_at: string | null; version: number };
+
+function userRecord(row: UserRow): UserRecord {
+  return {
+    id: row.id, username: row.username, displayName: row.display_name,
+    employeeId: row.employee_id ?? '', role: row.role, active: row.active,
+    failedAttempts: row.failed_attempts, lockedUntil: row.locked_until,
+    lastLoginAt: row.last_login_at, version: row.version,
+  };
+}
+
+export async function listUsers(db: Database, companyId: string) {
+  const result = await db.query<UserRow>(`SELECT u.id, u.username, u.display_name, m.employee_id, m.role,
+    u.active, u.failed_attempts, u.locked_until, u.last_login_at, u.version
+    FROM memberships m JOIN users u ON u.id = m.user_id
+    WHERE m.company_id = $1 ORDER BY u.username`, [companyId]);
+  return result.rows.map(userRecord);
+}
+
+export async function createUser(db: Database, actorId: string, input: { companyId: string; username: string; displayName: string; password: string; role: Role; employeeId: string; active: boolean }, requestId: string) {
   const id = randomUUID();
   const passwordHash = await hashPassword(input.password);
+  try {
+    await db.transaction(async tx => {
+      await tx.query('INSERT INTO users(id, username, display_name, password_hash, active) VALUES ($1,$2,$3,$4,$5)', [id, input.username, input.displayName, passwordHash, input.active]);
+      await tx.query('INSERT INTO memberships(company_id, user_id, role, employee_id) VALUES ($1,$2,$3,$4)', [input.companyId, id, input.role, input.employeeId]);
+      await audit(tx, { companyId: input.companyId, actorId, action: 'user.create', entityId: id, requestId });
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') throw new ApiError(409, 'USERNAME_EXISTS', 'El nombre de usuario ya existe.');
+    throw error;
+  }
+  return (await listUsers(db, input.companyId)).find(user => user.id === id)!;
+}
+
+export async function updateUser(db: Database, companyId: string, actorId: string, id: string, input: { username: string; displayName: string; password: string; role: Role; employeeId: string; active: boolean; version: number }, requestId: string) {
+  if (id === actorId && !input.active) throw new ApiError(400, 'SELF_DISABLE', 'No puedes desactivar tu propio usuario.');
+  const passwordHash = input.password ? await hashPassword(input.password) : null;
+  try {
+    await db.transaction(async tx => {
+      const updated = await tx.query<{ id: string }>(`UPDATE users SET username=$1, display_name=$2, active=$3,
+        password_hash=COALESCE($4,password_hash), version=version+1, updated_at=now()
+        WHERE id=$5 AND version=$6 RETURNING id`, [input.username, input.displayName, input.active, passwordHash, id, input.version]);
+      if (!updated.rows[0]) throw new ApiError(409, 'STALE_WRITE', 'El usuario cambió en otra sesión. Actualiza la página.');
+      const membership = await tx.query<{ user_id: string }>('UPDATE memberships SET role=$1, employee_id=$2, active=$3 WHERE company_id=$4 AND user_id=$5 RETURNING user_id', [input.role, input.employeeId, input.active, companyId, id]);
+      if (!membership.rows[0]) throw new ApiError(404, 'USER_NOT_FOUND', 'Usuario no encontrado.');
+      await audit(tx, { companyId, actorId, action: 'user.update', entityId: id, requestId });
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') throw new ApiError(409, 'USERNAME_EXISTS', 'El nombre de usuario ya existe.');
+    throw error;
+  }
+  return (await listUsers(db, companyId)).find(user => user.id === id)!;
+}
+
+export async function deleteUser(db: Database, companyId: string, actorId: string, id: string, requestId: string) {
+  if (id === actorId) throw new ApiError(400, 'SELF_DELETE', 'No puedes eliminar tu propio usuario.');
   await db.transaction(async tx => {
-    await tx.query('INSERT INTO users(id, username, display_name, password_hash) VALUES ($1,$2,$3,$4)', [id, input.username, input.displayName, passwordHash]);
-    await tx.query('INSERT INTO memberships(company_id, user_id, role) VALUES ($1,$2,$3)', [input.companyId, id, input.role]);
+    const member = await tx.query<{ user_id: string }>('SELECT user_id FROM memberships WHERE company_id=$1 AND user_id=$2', [companyId, id]);
+    if (!member.rows[0]) throw new ApiError(404, 'USER_NOT_FOUND', 'Usuario no encontrado.');
+    await tx.query('DELETE FROM sessions WHERE company_id=$1 AND user_id=$2', [companyId, id]);
+    await tx.query('UPDATE memberships SET active=false WHERE company_id=$1 AND user_id=$2', [companyId, id]);
+    await tx.query('UPDATE users SET active=false, version=version+1, updated_at=now() WHERE id=$1', [id]);
+    await audit(tx, { companyId, actorId, action: 'user.deactivate', entityId: id, requestId });
   });
-  return id;
+  return (await listUsers(db, companyId)).find(user => user.id === id)!;
 }
 
 export async function login(db: Database, company: string, username: string, password: string, requestId: string) {
@@ -50,7 +108,7 @@ export async function login(db: Database, company: string, username: string, pas
   const token = newToken();
   const created = new Date(now); const expires = new Date(now + SESSION_MS); const absolute = new Date(now + ABSOLUTE_SESSION_MS);
   await db.transaction(async tx => {
-    await tx.query('UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = $1', [row.user_id]);
+    await tx.query('UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at=now(), updated_at=now() WHERE id = $1', [row.user_id]);
     await tx.query('INSERT INTO sessions(token_hash, user_id, company_id, created_at, expires_at, absolute_expires_at) VALUES ($1,$2,$3,$4,$5,$6)', [tokenHash(token), row.user_id, row.company_id, created, expires, absolute]);
     await audit(tx, { companyId: row.company_id, actorId: row.user_id, action: 'auth.login', requestId });
   });

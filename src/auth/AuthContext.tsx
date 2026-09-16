@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useStore } from '../store';
+import { useStore, workspaceSnapshot, type WorkspaceState } from '../store';
 import type { Usuario, Sesion, Empresa } from '../types';
+import { apiUserToLocal, roleIdFor, type ApiUser } from './user-mapper';
 
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const API_BASE = '/api/v1';
@@ -24,18 +25,13 @@ interface AuthContextType {
   logout: () => void;
   tiempoRestante: number;
   csrfToken: string | null;
+  syncError: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function mapRole(role: ApiSessionUser['role']): string {
-  if (role === 'administrador') return 'rol00001';
-  if (role === 'facturador') return 'rol00002';
-  return 'rol00003';
-}
-
 function toLocalUser(user: ApiSessionUser): Usuario {
-  return { id: user.id, empleadoId: '', username: user.username, rolId: mapRole(user.role), activo: true, passwordHash: '' };
+  return { id: user.id, empleadoId: '', displayName: user.displayName, username: user.username, rolId: roleIdFor(user.role), activo: true, version: 1 };
 }
 
 function toLocalSession(userId: string, expiresAt?: string): Sesion {
@@ -58,9 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { state, dispatch } = useStore();
   const [tiempoRestante, setTiempoRestante] = useState(SESSION_TIMEOUT_MS / 1000);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const [workspaceReadyUser, setWorkspaceReadyUser] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const csrfRef = useRef<string | null>(null);
+  const workspaceVersionRef = useRef(0);
+  const lastWorkspaceRef = useRef('');
+  const saveQueueRef = useRef(Promise.resolve());
   const sesion = state.sesion;
+  const sessionUserId = sesion?.usuarioId;
   const usuarioActual = sesion ? state.usuarios.find(u => u.id === sesion.usuarioId) ?? state.usuarioActual : null;
 
   const clearLocalSession = useCallback(() => {
@@ -91,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [dispatch]);
 
   useEffect(() => {
-    if (!sesion) return;
+    if (!sessionUserId) return;
     let activo = true;
     void Promise.all([
       fetch(API_BASE + '/clients', { credentials: 'include' }),
@@ -108,7 +110,80 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }).catch(() => undefined);
     return () => { activo = false; };
-  }, [dispatch, sesion]);
+  }, [dispatch, sessionUserId]);
+
+  useEffect(() => {
+    const userId = sessionUserId;
+    if (!userId) return;
+    let active = true;
+    void Promise.all([
+      fetch(`${API_BASE}/workspace`, { credentials: 'include' }),
+      fetch(`${API_BASE}/users`, { credentials: 'include' }),
+    ]).then(async ([workspaceResponse, usersResponse]) => {
+      if (!active) return;
+      if (usersResponse.ok) {
+        const users = await usersResponse.json() as { data: ApiUser[] };
+        dispatch({ type: 'SET_USUARIOS', payload: users.data.map(apiUserToLocal) });
+      }
+      if (!workspaceResponse.ok) { setSyncError('No se pudo cargar la configuración guardada.'); return; }
+      const workspace = await workspaceResponse.json() as { data: WorkspaceState | null; version: number };
+      let data = workspace.data;
+      let version = workspace.version;
+      if (!data) {
+        data = workspaceSnapshot(state);
+        const csrf = csrfRef.current;
+        const created = await fetch(`${API_BASE}/workspace`, {
+          method: 'PUT', credentials: 'include', headers: { 'content-type': 'application/json', ...(csrf ? { 'x-csrf-token': csrf } : {}) },
+          body: JSON.stringify({ data, version: 0 }),
+        });
+        if (!created.ok) { setSyncError('No se pudo inicializar la configuración persistente.'); return; }
+        version = ((await created.json()) as { version: number }).version;
+      } else {
+        dispatch({ type: 'SET_WORKSPACE', payload: data });
+      }
+      workspaceVersionRef.current = version;
+      lastWorkspaceRef.current = JSON.stringify(data);
+      if (active) { setSyncError(null); setWorkspaceReadyUser(userId); }
+    }).catch(() => { if (active) setSyncError('No se pudo conectar con el almacenamiento del sistema.'); });
+    return () => { active = false; };
+    // Hydrate once per authenticated user; state is intentionally captured as the first-login seed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, sessionUserId]);
+
+  const workspace = workspaceSnapshot(state);
+  const serializedWorkspace = JSON.stringify(workspace);
+  useEffect(() => {
+    if (!sessionUserId || workspaceReadyUser !== sessionUserId || serializedWorkspace === lastWorkspaceRef.current) return;
+    const data = workspace;
+    lastWorkspaceRef.current = serializedWorkspace;
+    const timeout = setTimeout(() => {
+      saveQueueRef.current = saveQueueRef.current.then(async () => {
+        const csrf = csrfRef.current;
+        const response = await fetch(`${API_BASE}/workspace`, {
+          method: 'PUT', credentials: 'include', headers: { 'content-type': 'application/json', ...(csrf ? { 'x-csrf-token': csrf } : {}) },
+          body: JSON.stringify({ data, version: workspaceVersionRef.current }),
+        });
+        if (response.ok) {
+          workspaceVersionRef.current = ((await response.json()) as { version: number }).version;
+          setSyncError(null);
+          return;
+        }
+        if (response.status === 409) {
+          const latest = await fetch(`${API_BASE}/workspace`, { credentials: 'include' });
+          if (latest.ok) {
+            const body = await latest.json() as { data: WorkspaceState; version: number };
+            workspaceVersionRef.current = body.version;
+            lastWorkspaceRef.current = JSON.stringify(body.data);
+            dispatch({ type: 'SET_WORKSPACE', payload: body.data });
+            setSyncError('La información cambió en otra sesión; se cargó la versión más reciente.');
+          }
+          return;
+        }
+        setSyncError('No se pudieron guardar los últimos cambios. Actualiza la página antes de continuar.');
+      }).catch(() => setSyncError('No se pudieron sincronizar los cambios con el servidor.'));
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [dispatch, serializedWorkspace, workspace, workspaceReadyUser, sessionUserId]);
 
   const resetTimer = useCallback(() => {
     if (!sesion) return;
@@ -146,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch { return { ok: false, error: 'No se pudo conectar con el servidor.' }; }
   };
 
-  return <AuthContext.Provider value={{ sesion, usuarioActual, login, logout, tiempoRestante, csrfToken }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ sesion, usuarioActual, login, logout, tiempoRestante, csrfToken, syncError }}>{children}</AuthContext.Provider>;
 }
 
 // This hook intentionally shares the provider module.
@@ -156,4 +231,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-

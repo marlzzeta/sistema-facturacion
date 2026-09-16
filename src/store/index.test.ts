@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Factura, LineaFactura } from '../types';
-import { initialState, reducer } from './index';
+import { initialState, reducer, workspaceSnapshot } from './index';
 
 function makeLine(id: string, itemId: string, cantidad: number): LineaFactura {
   return {
@@ -71,5 +71,19 @@ describe('store reducer', () => {
 
     expect(next.facturas[0].estado).toBe('anulado');
     expect(state.facturas[0].estado).toBe('emitido');
+  });
+
+  it('incluye en la persistencia todas las colecciones administrativas locales', () => {
+    expect(Object.keys(workspaceSnapshot(initialState)).sort()).toEqual([
+      'articulos', 'datosFiscales', 'empleados', 'establecimientos', 'formasPago',
+      'puntosEmision', 'roles', 'servicios', 'tiposImpuesto', 'tiposMoneda', 'tiposRetencion',
+    ].sort());
+  });
+
+  it('hidrata el espacio de trabajo desde el servidor', () => {
+    const workspace = { ...workspaceSnapshot(initialState), empleados: [{ ...initialState.empleados[0], nombre: 'Persistido' }] };
+    const next = reducer(initialState, { type: 'SET_WORKSPACE', payload: workspace });
+    expect(next.empleados[0].nombre).toBe('Persistido');
+    expect(next.clientes).toBe(initialState.clientes);
   });
 });

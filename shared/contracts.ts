@@ -2,11 +2,11 @@ import { z } from 'zod';
 
 export const roles = ['administrador', 'facturador', 'auditor'] as const;
 export type Role = typeof roles[number];
-export type Permission = 'company:read' | 'company:write' | 'clients:read' | 'clients:write' | 'users:read' | 'users:write' | 'audit:read';
+export type Permission = 'company:read' | 'company:write' | 'clients:read' | 'clients:write' | 'users:read' | 'users:write' | 'workspace:read' | 'workspace:write' | 'audit:read';
 export const rolePermissions: Record<Role, readonly Permission[]> = {
-  administrador: ['company:read', 'company:write', 'clients:read', 'clients:write', 'users:read', 'users:write', 'audit:read'],
-  facturador: ['company:read', 'clients:read', 'clients:write'],
-  auditor: ['company:read', 'clients:read', 'audit:read'],
+  administrador: ['company:read', 'company:write', 'clients:read', 'clients:write', 'users:read', 'users:write', 'workspace:read', 'workspace:write', 'audit:read'],
+  facturador: ['company:read', 'clients:read', 'clients:write', 'workspace:read', 'workspace:write'],
+  auditor: ['company:read', 'clients:read', 'workspace:read', 'audit:read'],
 };
 
 export interface SessionUser {
@@ -37,7 +37,52 @@ export const newUserSchema = z.object({
   displayName: z.string().trim().min(1).max(150),
   password: z.string().min(15).max(128),
   role: z.enum(roles),
+  employeeId: z.string().trim().min(1).max(100),
+  active: z.boolean().default(true),
 }).strict();
+
+export const updateUserSchema = z.object({
+  username: z.string().trim().toLowerCase().regex(/^[a-z0-9._@-]{3,100}$/),
+  displayName: z.string().trim().min(1).max(150),
+  password: z.union([z.literal(''), z.string().min(15).max(128)]).default(''),
+  role: z.enum(roles),
+  employeeId: z.string().trim().min(1).max(100),
+  active: z.boolean(),
+  version: z.number().int().positive(),
+}).strict();
+
+export interface UserRecord {
+  id: string;
+  username: string;
+  displayName: string;
+  employeeId: string;
+  role: Role;
+  active: boolean;
+  failedAttempts: number;
+  lockedUntil: string | null;
+  lastLoginAt: string | null;
+  version: number;
+}
+
+const workspaceCollection = z.array(z.record(z.string(), z.unknown())).max(5000);
+export const workspaceDataSchema = z.object({
+  establecimientos: workspaceCollection,
+  puntosEmision: workspaceCollection,
+  roles: workspaceCollection,
+  empleados: workspaceCollection,
+  datosFiscales: workspaceCollection,
+  tiposImpuesto: workspaceCollection,
+  tiposRetencion: workspaceCollection,
+  tiposMoneda: workspaceCollection,
+  formasPago: workspaceCollection,
+  articulos: workspaceCollection,
+  servicios: workspaceCollection,
+}).strict();
+export const updateWorkspaceSchema = z.object({
+  data: workspaceDataSchema,
+  version: z.number().int().nonnegative(),
+}).strict();
+export type WorkspaceData = z.infer<typeof workspaceDataSchema>;
 
 const logoDataUrl = z.string()
   .max(2_800_000)
@@ -94,4 +139,3 @@ export const invoiceSchema = z.object({
 }).strict();
 export type InvoiceInput = z.infer<typeof invoiceSchema>;
 export interface ApiErrorBody { error: { code: string; message: string; requestId: string } }
-

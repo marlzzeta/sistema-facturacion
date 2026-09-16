@@ -49,10 +49,11 @@ export interface Empleado {
 export interface Usuario {
   id: string;
   empleadoId: string;
+  displayName: string;
   username: string;
   rolId: string;
   activo: boolean;
-  passwordHash: string;
+  version: number;
   ultimoAcceso?: string;
   intentosFallidos?: number;
   bloqueadoHasta?: string;
