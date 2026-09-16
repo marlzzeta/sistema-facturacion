@@ -30,7 +30,7 @@ import FacturasPage from './modules/documentos/Facturas';
 
 function AppContent() {
   const { state } = useStore();
-  const { sesion, usuarioActual } = useAuth();
+  const { sesion, usuarioActual, syncError } = useAuth();
   const [currentPage, setCurrentPage] = useState('facturas');
 
   // Apply dark class to <html>
@@ -72,6 +72,7 @@ function AppContent() {
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar currentPage={currentPage} usuarioActual={usuarioActual} />
+        {syncError && <div role="alert" className="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700">{syncError}</div>}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {renderPage()}
         </main>
