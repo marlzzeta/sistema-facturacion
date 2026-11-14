@@ -2,11 +2,11 @@ import { z } from 'zod';
 
 export const roles = ['administrador', 'facturador', 'auditor'] as const;
 export type Role = typeof roles[number];
-export type Permission = 'company:read' | 'company:write' | 'clients:read' | 'clients:write' | 'users:read' | 'users:write' | 'workspace:read' | 'workspace:write' | 'audit:read';
+export type Permission = 'company:read' | 'company:write' | 'clients:read' | 'clients:write' | 'users:read' | 'users:write' | 'workspace:read' | 'workspace:write' | 'audit:read' | 'invoices:read' | 'invoices:write';
 export const rolePermissions: Record<Role, readonly Permission[]> = {
-  administrador: ['company:read', 'company:write', 'clients:read', 'clients:write', 'users:read', 'users:write', 'workspace:read', 'workspace:write', 'audit:read'],
-  facturador: ['company:read', 'clients:read', 'clients:write', 'workspace:read', 'workspace:write'],
-  auditor: ['company:read', 'clients:read', 'workspace:read', 'audit:read'],
+  administrador: ['company:read', 'company:write', 'clients:read', 'clients:write', 'users:read', 'users:write', 'workspace:read', 'workspace:write', 'audit:read', 'invoices:read', 'invoices:write'],
+  facturador: ['company:read', 'clients:read', 'clients:write', 'workspace:read', 'workspace:write', 'invoices:read', 'invoices:write'],
+  auditor: ['company:read', 'clients:read', 'workspace:read', 'audit:read', 'invoices:read'],
 };
 
 export interface SessionUser {

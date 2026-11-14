@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import { ZodError } from 'zod';
 import { randomUUID } from 'node:crypto';
 import type { Database } from './db/database.js';
@@ -40,10 +41,20 @@ function setSession(reply: FastifyReply, token: string, csrfToken: string, secur
 }
 
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false, genReqId: () => randomUUID(), bodyLimit: 3 * 1024 * 1024 });
+  const app = Fastify({ logger: options.nodeEnv === 'production' ? { level: 'warn' } : false, genReqId: () => randomUUID(), bodyLimit: 3 * 1024 * 1024 });
   const secure = options.secureCookies ?? options.nodeEnv === 'production';
   await app.register(cookie);
   await app.register(helmet);
+  if (options.nodeEnv !== 'test') {
+    await app.register(rateLimit, {
+      max: 20,
+      timeWindow: '1 minute',
+      keyGenerator: (request) => {
+        const fwd = request.headers['x-forwarded-for'];
+        return (typeof fwd === 'string' ? fwd.split(',')[0].trim() : fwd?.[0]) ?? request.ip ?? 'unknown';
+      },
+    });
+  }
 
   app.addHook('onRequest', async (request) => {
     const origin = request.headers.origin;
@@ -144,15 +155,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   app.get('/api/v1/invoices', async (request, reply) => {
-    const user = requirePermission(request, 'clients:read');
+    const user = requirePermission(request, 'invoices:read');
     return reply.send({ data: await listInvoices(options.db, user.companyId) });
   });
   app.post('/api/v1/invoices', async (request, reply) => {
-    const user = requirePermission(request, 'clients:write'); requireCsrf(request);
+    const user = requirePermission(request, 'invoices:write'); requireCsrf(request);
     return reply.code(201).send({ data: await createInvoice(options.db, user.companyId, user.id, invoiceSchema.parse(request.body), request.id) });
   });
   app.patch('/api/v1/invoices/:id/cancel', async (request, reply) => {
-    const user = requirePermission(request, 'clients:write'); requireCsrf(request);
+    const user = requirePermission(request, 'invoices:write'); requireCsrf(request);
     const params = request.params as { id: string };
     return reply.send({ data: await cancelInvoice(options.db, user.companyId, user.id, params.id, request.id) });
   });

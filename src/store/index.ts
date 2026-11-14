@@ -6,7 +6,7 @@ import type {
   FormaPago, Articulo, Servicio, Factura, Sesion
 } from '../types';
 
-const uuid = () => Math.random().toString(36).slice(2, 10);
+const uuid = () => crypto.randomUUID();
 
 // ── Seed IDs ────────────────────────────────────────────────────────────────
 const ID = {
@@ -219,7 +219,23 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'UPDATE_USUARIO': return { ...state, usuarios: state.usuarios.map(e => e.id === action.payload.id ? action.payload : e) };
     case 'DELETE_USUARIO': return { ...state, usuarios: state.usuarios.filter(e => e.id !== action.payload) };
     case 'SET_USUARIOS': return { ...state, usuarios: action.payload };
-    case 'SET_WORKSPACE': return { ...state, ...action.payload };
+    case 'SET_WORKSPACE': {
+      const p = action.payload;
+      return {
+        ...state,
+        establecimientos: p.establecimientos,
+        puntosEmision: p.puntosEmision,
+        roles: p.roles,
+        empleados: p.empleados,
+        datosFiscales: p.datosFiscales,
+        tiposImpuesto: p.tiposImpuesto,
+        tiposRetencion: p.tiposRetencion,
+        tiposMoneda: p.tiposMoneda,
+        formasPago: p.formasPago,
+        articulos: p.articulos,
+        servicios: p.servicios,
+      };
+    }
     // Clientes
     case 'ADD_CLIENTE': return { ...state, clientes: [...state.clientes, action.payload] };
     case 'UPDATE_CLIENTE': return { ...state, clientes: state.clientes.map(e => e.id === action.payload.id ? action.payload : e) };

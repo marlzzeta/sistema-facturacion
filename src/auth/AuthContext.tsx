@@ -28,6 +28,13 @@ interface AuthContextType {
   syncError: string | null;
 }
 
+function getCompanySlug(): string {
+  const host = window.location.hostname;
+  if (host === 'localhost' || /^\d+(\.\d+){3}$/.test(host)) return 'demo';
+  const sub = host.split('.')[0];
+  return /^[a-z0-9][a-z0-9-]{1,62}$/.test(sub) ? sub : 'demo';
+}
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 function toLocalUser(user: ApiSessionUser): Usuario {
@@ -210,7 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ company: 'demo', username: username.trim(), password }) });
+      const response = await fetch(`${API_BASE}/auth/login`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ company: getCompanySlug(), username: username.trim(), password }) });
       if (!response.ok) return { ok: false, error: await readApiError(response) };
       const data = await response.json() as ApiSessionResponse;
       csrfRef.current = data.csrfToken ?? null; setCsrfToken(csrfRef.current);

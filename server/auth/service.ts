@@ -56,7 +56,9 @@ export async function createUser(db: Database, actorId: string, input: { company
     if ((error as { code?: string }).code === '23505') throw new ApiError(409, 'USERNAME_EXISTS', 'El nombre de usuario ya existe.');
     throw error;
   }
-  return (await listUsers(db, input.companyId)).find(user => user.id === id)!;
+  const created = (await listUsers(db, input.companyId)).find(u => u.id === id);
+  if (!created) throw new ApiError(500, 'INTERNAL_ERROR', 'Error interno al crear usuario.');
+  return created;
 }
 
 export async function updateUser(db: Database, companyId: string, actorId: string, id: string, input: { username: string; displayName: string; password: string; role: Role; employeeId: string; active: boolean; version: number }, requestId: string) {
@@ -76,7 +78,9 @@ export async function updateUser(db: Database, companyId: string, actorId: strin
     if ((error as { code?: string }).code === '23505') throw new ApiError(409, 'USERNAME_EXISTS', 'El nombre de usuario ya existe.');
     throw error;
   }
-  return (await listUsers(db, companyId)).find(user => user.id === id)!;
+  const updated = (await listUsers(db, companyId)).find(u => u.id === id);
+  if (!updated) throw new ApiError(500, 'INTERNAL_ERROR', 'Error interno al actualizar usuario.');
+  return updated;
 }
 
 export async function deleteUser(db: Database, companyId: string, actorId: string, id: string, requestId: string) {
@@ -89,7 +93,9 @@ export async function deleteUser(db: Database, companyId: string, actorId: strin
     await tx.query('UPDATE users SET active=false, version=version+1, updated_at=now() WHERE id=$1', [id]);
     await audit(tx, { companyId, actorId, action: 'user.deactivate', entityId: id, requestId });
   });
-  return (await listUsers(db, companyId)).find(user => user.id === id)!;
+  const deactivated = (await listUsers(db, companyId)).find(u => u.id === id);
+  if (!deactivated) throw new ApiError(500, 'INTERNAL_ERROR', 'Error interno al eliminar usuario.');
+  return deactivated;
 }
 
 export async function login(db: Database, company: string, username: string, password: string, requestId: string) {
