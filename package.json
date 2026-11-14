@@ -33,6 +33,9 @@
     "tailwindcss": "^4.3.0",
     "zod": "^4.6.4"
   },
+  "overrides": {
+    "dompurify": ">=3.4.17"
+  },
   "engines": {
     "node": "22.x"
   },
