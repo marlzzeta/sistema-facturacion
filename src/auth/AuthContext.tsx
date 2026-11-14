@@ -65,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [syncError, setSyncError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const csrfRef = useRef<string | null>(null);
+  const lastRenewAtRef = useRef(0);
   const workspaceVersionRef = useRef(0);
   const lastWorkspaceRef = useRef('');
   const saveQueueRef = useRef(Promise.resolve());
@@ -192,11 +193,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timeout);
   }, [dispatch, serializedWorkspace, workspace, workspaceReadyUser, sessionUserId]);
 
+  const renewIfNeeded = useCallback(async () => {
+    const csrf = csrfRef.current;
+    if (!sesion || !csrf) return;
+    const now = Date.now();
+    if (now - lastRenewAtRef.current < 5 * 60 * 1000) return;
+    lastRenewAtRef.current = now;
+    try {
+      const response = await fetch(`${API_BASE}/auth/renew`, {
+        method: 'POST', credentials: 'include', headers: { 'x-csrf-token': csrf },
+      });
+      if (response.ok) {
+        const data = await response.json() as { expiresAt: string; absoluteExpiresAt: string };
+        dispatch({ type: 'SET_SESION', payload: { ...sesion, expiraEn: data.expiresAt, ultimaActividad: new Date().toISOString() } });
+        setTiempoRestante(Math.max(0, Math.floor((new Date(data.expiresAt).getTime() - Date.now()) / 1000)));
+      } else if (response.status === 401) {
+        logout();
+      }
+    } catch { /* network error, skip renewal */ }
+  }, [sesion, dispatch, logout]);
+
   const resetTimer = useCallback(() => {
     if (!sesion) return;
     dispatch({ type: 'SET_SESION', payload: { ...sesion, ultimaActividad: new Date().toISOString(), expiraEn: new Date(Date.now() + SESSION_TIMEOUT_MS).toISOString() } });
     setTiempoRestante(SESSION_TIMEOUT_MS / 1000);
-  }, [dispatch, sesion]);
+    void renewIfNeeded();
+  }, [dispatch, sesion, renewIfNeeded]);
 
   useEffect(() => {
     if (!sesion) return;

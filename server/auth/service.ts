@@ -129,6 +129,32 @@ export async function loadSession(db: Database, token: string | undefined) {
   return { token, session: { user: sessionUser(row), expiresAt: row.expires_at, absoluteExpiresAt: row.absolute_expires_at, csrfToken: csrfFor(token) } satisfies SessionResponse };
 }
 
+export async function renewSession(db: Database, token: string) {
+  const hash = tokenHash(token);
+  const now = Date.now();
+  const result = await db.query<MembershipRow & { expires_at: string; absolute_expires_at: string }>(
+    `SELECT u.id AS user_id, u.username, u.display_name, c.id AS company_id, c.name AS company_name,
+     m.role, u.password_hash, u.failed_attempts, u.locked_until,
+     u.active AS user_active, m.active AS membership_active,
+     s.expires_at, s.absolute_expires_at
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     JOIN memberships m ON m.company_id = s.company_id AND m.user_id = s.user_id
+     JOIN companies c ON c.id = s.company_id
+     WHERE s.token_hash = $1`,
+    [hash],
+  );
+  const row = result.rows[0];
+  if (!row || !row.user_active || !row.membership_active) return null;
+  const absolute = new Date(row.absolute_expires_at).getTime();
+  if (absolute <= now) return null;
+  const proposed = now + SESSION_MS;
+  const capped = Math.min(proposed, absolute);
+  await db.query('UPDATE sessions SET expires_at = $1 WHERE token_hash = $2', [new Date(capped), hash]);
+  const expiresAt = new Date(capped).toISOString();
+  return { token, session: { user: sessionUser(row), expiresAt, absoluteExpiresAt: row.absolute_expires_at, csrfToken: csrfFor(token) } satisfies SessionResponse };
+}
+
 export async function logout(db: Database, token: string, requestId: string) {
   await db.transaction(async tx => {
     const existing = await tx.query<{ user_id: string; company_id: string }>('SELECT user_id, company_id FROM sessions WHERE token_hash = $1', [tokenHash(token)]);

@@ -6,7 +6,7 @@ import { ZodError } from 'zod';
 import { randomUUID } from 'node:crypto';
 import type { Database } from './db/database.js';
 import { ApiError } from './errors.js';
-import { createUser, deleteUser, listUsers, login, loadSession, logout, updateUser } from './auth/service.js';
+import { createUser, deleteUser, listUsers, login, loadSession, logout, renewSession, updateUser } from './auth/service.js';
 import { validCsrf } from './auth/crypto.js';
 import { listClients, createClient, updateClient } from './clients/service.js';
 import { cancelInvoice, listInvoices, createInvoice } from './invoices/service.js';
@@ -98,6 +98,17 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (request.authUser) { requireCsrf(request); await logout(options.db, request.sessionToken!, request.id); }
     reply.clearCookie(sessionCookie, { path: '/' }); reply.clearCookie(csrfCookie, { path: '/' });
     return reply.send({ ok: true });
+  });
+
+  app.post('/api/v1/auth/renew', {
+    schema: { response: { 200: { type: 'object', properties: { expiresAt: { type: 'string' }, absoluteExpiresAt: { type: 'string' } }, required: ['expiresAt', 'absoluteExpiresAt'] } } },
+  }, async (request, reply) => {
+    if (!request.authUser || !request.sessionToken) throw new ApiError(401, 'UNAUTHENTICATED', 'Sesión requerida.');
+    requireCsrf(request);
+    const result = await renewSession(options.db, request.sessionToken);
+    if (!result) throw new ApiError(401, 'SESSION_EXPIRED', 'La sesión ha expirado.');
+    setSession(reply, result.token, result.session.csrfToken, secure);
+    return reply.send({ expiresAt: result.session.expiresAt, absoluteExpiresAt: result.session.absoluteExpiresAt });
   });
 
   app.get('/api/v1/users', async (request, reply) => {
