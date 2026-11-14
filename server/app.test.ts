@@ -121,4 +121,113 @@ describe('backend HTTP foundation', () => {
     const listed = await app.inject({ method: 'GET', url: '/api/v1/invoices', headers: { cookie } });
     expect(listed.json().data[0].estado).toBe('anulado');
   });
+
+  describe('account lockout', () => {
+    it('bloquea la cuenta tras 5 intentos fallidos consecutivos', async () => {
+      const created = await app.inject({
+        method: 'POST', url: '/api/v1/users', headers: { cookie, 'x-csrf-token': csrf },
+        payload: { username: 'locktest', displayName: 'Lock Test', password: 'LockPassword123!456', role: 'facturador', employeeId: 'emp-lock-01', active: true },
+      });
+      expect(created.statusCode).toBe(201);
+      for (let i = 0; i < 5; i++) {
+        await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { company: 'demo', username: 'locktest', password: 'WrongPassword!1234' } });
+      }
+      const r = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { company: 'demo', username: 'locktest', password: 'LockPassword123!456' } });
+      expect(r.statusCode).toBe(401);
+      expect(r.json().error.code).toBe('INVALID_CREDENTIALS');
+    });
+  });
+
+  describe('session renewal', () => {
+    it('renueva una sesión activa y retorna nuevo expiresAt', async () => {
+      const r = await app.inject({ method: 'POST', url: '/api/v1/auth/renew', headers: { cookie, 'x-csrf-token': csrf } });
+      expect(r.statusCode).toBe(200);
+      expect(r.json()).toHaveProperty('expiresAt');
+      expect(r.json()).toHaveProperty('absoluteExpiresAt');
+    });
+
+    it('rechaza renovación sin CSRF', async () => {
+      const r = await app.inject({ method: 'POST', url: '/api/v1/auth/renew', headers: { cookie } });
+      expect(r.statusCode).toBe(403);
+    });
+
+    it('rechaza renovación sin sesión activa', async () => {
+      const r = await app.inject({ method: 'POST', url: '/api/v1/auth/renew' });
+      expect(r.statusCode).toBe(401);
+    });
+  });
+
+  describe('expired / invalid session', () => {
+    it('rechaza requests con token de sesión inválido', async () => {
+      const r = await app.inject({ method: 'GET', url: '/api/v1/clients', headers: { cookie: 'session=INVALID_TOKEN_XYZ_THAT_DOES_NOT_EXIST' } });
+      expect(r.statusCode).toBe(401);
+    });
+  });
+
+  describe('role-based access control', () => {
+    it('auditor no puede crear facturas', async () => {
+      const created = await app.inject({
+        method: 'POST', url: '/api/v1/users', headers: { cookie, 'x-csrf-token': csrf },
+        payload: { username: 'auditor.test', displayName: 'Auditor Test', password: 'AuditSecure123!456', role: 'auditor', employeeId: 'emp-aud-01', active: true },
+      });
+      expect(created.statusCode).toBe(201);
+      const auditLogin = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { company: 'demo', username: 'auditor.test', password: 'AuditSecure123!456' } });
+      expect(auditLogin.statusCode).toBe(200);
+      const rawCookies = auditLogin.headers['set-cookie'];
+      const auditCookies = Array.isArray(rawCookies) ? rawCookies : [rawCookies ?? ''];
+      const auditCookie = auditCookies.map((v: string) => v.split(';', 1)[0]).join('; ');
+      const auditCsrf = auditLogin.json().csrfToken as string;
+      const clients = await app.inject({ method: 'GET', url: '/api/v1/clients', headers: { cookie: auditCookie } });
+      const clienteId = clients.json().data[0].id as string;
+      const r = await app.inject({
+        method: 'POST', url: '/api/v1/invoices', headers: { cookie: auditCookie, 'x-csrf-token': auditCsrf },
+        payload: { numero: '001-001-01-99999999', clienteId, fecha: '2026-09-15', total: '100.00', estado: 'emitido', payload: {} },
+      });
+      expect(r.statusCode).toBe(403);
+      expect(r.json().error.code).toBe('FORBIDDEN');
+    });
+  });
+
+  describe('optimistic locking', () => {
+    it('rechaza actualización de cliente con versión obsoleta', async () => {
+      const clients = await app.inject({ method: 'GET', url: '/api/v1/clients', headers: { cookie } });
+      const client = clients.json().data[0] as { id: string; nombre: string };
+      const r = await app.inject({
+        method: 'PATCH', url: `/api/v1/clients/${client.id}`, headers: { cookie, 'x-csrf-token': csrf },
+        payload: { nombre: client.nombre, rtn: '', dni: '', correo: '', telefono: '', direccion: '', condicionPago: 'contado', limitCredito: '0.00', exentoImpuesto: false, activo: true, version: 9999 },
+      });
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.code).toBe('STALE_CLIENT');
+    });
+  });
+
+  describe('invoice constraints', () => {
+    it('rechaza número de factura duplicado', async () => {
+      const clients = await app.inject({ method: 'GET', url: '/api/v1/clients', headers: { cookie } });
+      const clienteId = clients.json().data[0].id as string;
+      const payload1 = { numero: '001-001-01-99000001', clienteId, fecha: '2026-09-16', total: '50.00', estado: 'emitido', payload: { numero: '001-001-01-99000001' } };
+      const first = await app.inject({ method: 'POST', url: '/api/v1/invoices', headers: { cookie, 'x-csrf-token': csrf }, payload: payload1 });
+      expect(first.statusCode).toBe(201);
+      const second = await app.inject({ method: 'POST', url: '/api/v1/invoices', headers: { cookie, 'x-csrf-token': csrf }, payload: payload1 });
+      expect(second.statusCode).toBe(409);
+      expect(second.json().error.code).toBe('DUPLICATE_INVOICE');
+    });
+
+    it('anular factura ya anulada es idempotente', async () => {
+      const clients = await app.inject({ method: 'GET', url: '/api/v1/clients', headers: { cookie } });
+      const clienteId = clients.json().data[0].id as string;
+      const created = await app.inject({
+        method: 'POST', url: '/api/v1/invoices', headers: { cookie, 'x-csrf-token': csrf },
+        payload: { numero: '001-001-01-99000002', clienteId, fecha: '2026-09-16', total: '75.00', estado: 'emitido', payload: { numero: '001-001-01-99000002' } },
+      });
+      expect(created.statusCode).toBe(201);
+      const id = created.json().data.id as string;
+      const first = await app.inject({ method: 'PATCH', url: `/api/v1/invoices/${id}/cancel`, headers: { cookie, 'x-csrf-token': csrf } });
+      expect(first.statusCode).toBe(200);
+      expect(first.json().data.estado).toBe('anulado');
+      const second = await app.inject({ method: 'PATCH', url: `/api/v1/invoices/${id}/cancel`, headers: { cookie, 'x-csrf-token': csrf } });
+      expect(second.statusCode).toBe(200);
+      expect(second.json().data.estado).toBe('anulado');
+    });
+  });
 });

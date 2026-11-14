@@ -1,11 +1,12 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import { ZodError } from 'zod';
 import { randomUUID } from 'node:crypto';
 import type { Database } from './db/database.js';
 import { ApiError } from './errors.js';
-import { createUser, deleteUser, listUsers, login, loadSession, logout, updateUser } from './auth/service.js';
+import { createUser, deleteUser, listUsers, login, loadSession, logout, renewSession, updateUser } from './auth/service.js';
 import { validCsrf } from './auth/crypto.js';
 import { listClients, createClient, updateClient } from './clients/service.js';
 import { cancelInvoice, listInvoices, createInvoice } from './invoices/service.js';
@@ -40,10 +41,20 @@ function setSession(reply: FastifyReply, token: string, csrfToken: string, secur
 }
 
 export async function createApp(options: AppOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false, genReqId: () => randomUUID(), bodyLimit: 3 * 1024 * 1024 });
+  const app = Fastify({ logger: options.nodeEnv === 'production' ? { level: 'warn' } : false, genReqId: () => randomUUID(), bodyLimit: 3 * 1024 * 1024 });
   const secure = options.secureCookies ?? options.nodeEnv === 'production';
   await app.register(cookie);
   await app.register(helmet);
+  if (options.nodeEnv !== 'test') {
+    await app.register(rateLimit, {
+      max: 20,
+      timeWindow: '1 minute',
+      keyGenerator: (request) => {
+        const fwd = request.headers['x-forwarded-for'];
+        return (typeof fwd === 'string' ? fwd.split(',')[0].trim() : fwd?.[0]) ?? request.ip ?? 'unknown';
+      },
+    });
+  }
 
   app.addHook('onRequest', async (request) => {
     const origin = request.headers.origin;
@@ -87,6 +98,17 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
     if (request.authUser) { requireCsrf(request); await logout(options.db, request.sessionToken!, request.id); }
     reply.clearCookie(sessionCookie, { path: '/' }); reply.clearCookie(csrfCookie, { path: '/' });
     return reply.send({ ok: true });
+  });
+
+  app.post('/api/v1/auth/renew', {
+    schema: { response: { 200: { type: 'object', properties: { expiresAt: { type: 'string' }, absoluteExpiresAt: { type: 'string' } }, required: ['expiresAt', 'absoluteExpiresAt'] } } },
+  }, async (request, reply) => {
+    if (!request.authUser || !request.sessionToken) throw new ApiError(401, 'UNAUTHENTICATED', 'Sesión requerida.');
+    requireCsrf(request);
+    const result = await renewSession(options.db, request.sessionToken);
+    if (!result) throw new ApiError(401, 'SESSION_EXPIRED', 'La sesión ha expirado.');
+    setSession(reply, result.token, result.session.csrfToken, secure);
+    return reply.send({ expiresAt: result.session.expiresAt, absoluteExpiresAt: result.session.absoluteExpiresAt });
   });
 
   app.get('/api/v1/users', async (request, reply) => {
@@ -144,15 +166,15 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   app.get('/api/v1/invoices', async (request, reply) => {
-    const user = requirePermission(request, 'clients:read');
+    const user = requirePermission(request, 'invoices:read');
     return reply.send({ data: await listInvoices(options.db, user.companyId) });
   });
   app.post('/api/v1/invoices', async (request, reply) => {
-    const user = requirePermission(request, 'clients:write'); requireCsrf(request);
+    const user = requirePermission(request, 'invoices:write'); requireCsrf(request);
     return reply.code(201).send({ data: await createInvoice(options.db, user.companyId, user.id, invoiceSchema.parse(request.body), request.id) });
   });
   app.patch('/api/v1/invoices/:id/cancel', async (request, reply) => {
-    const user = requirePermission(request, 'clients:write'); requireCsrf(request);
+    const user = requirePermission(request, 'invoices:write'); requireCsrf(request);
     const params = request.params as { id: string };
     return reply.send({ data: await cancelInvoice(options.db, user.companyId, user.id, params.id, request.id) });
   });

@@ -56,7 +56,9 @@ export async function createUser(db: Database, actorId: string, input: { company
     if ((error as { code?: string }).code === '23505') throw new ApiError(409, 'USERNAME_EXISTS', 'El nombre de usuario ya existe.');
     throw error;
   }
-  return (await listUsers(db, input.companyId)).find(user => user.id === id)!;
+  const created = (await listUsers(db, input.companyId)).find(u => u.id === id);
+  if (!created) throw new ApiError(500, 'INTERNAL_ERROR', 'Error interno al crear usuario.');
+  return created;
 }
 
 export async function updateUser(db: Database, companyId: string, actorId: string, id: string, input: { username: string; displayName: string; password: string; role: Role; employeeId: string; active: boolean; version: number }, requestId: string) {
@@ -76,7 +78,9 @@ export async function updateUser(db: Database, companyId: string, actorId: strin
     if ((error as { code?: string }).code === '23505') throw new ApiError(409, 'USERNAME_EXISTS', 'El nombre de usuario ya existe.');
     throw error;
   }
-  return (await listUsers(db, companyId)).find(user => user.id === id)!;
+  const updated = (await listUsers(db, companyId)).find(u => u.id === id);
+  if (!updated) throw new ApiError(500, 'INTERNAL_ERROR', 'Error interno al actualizar usuario.');
+  return updated;
 }
 
 export async function deleteUser(db: Database, companyId: string, actorId: string, id: string, requestId: string) {
@@ -89,7 +93,9 @@ export async function deleteUser(db: Database, companyId: string, actorId: strin
     await tx.query('UPDATE users SET active=false, version=version+1, updated_at=now() WHERE id=$1', [id]);
     await audit(tx, { companyId, actorId, action: 'user.deactivate', entityId: id, requestId });
   });
-  return (await listUsers(db, companyId)).find(user => user.id === id)!;
+  const deactivated = (await listUsers(db, companyId)).find(u => u.id === id);
+  if (!deactivated) throw new ApiError(500, 'INTERNAL_ERROR', 'Error interno al eliminar usuario.');
+  return deactivated;
 }
 
 export async function login(db: Database, company: string, username: string, password: string, requestId: string) {
@@ -121,6 +127,32 @@ export async function loadSession(db: Database, token: string | undefined) {
   const row = result.rows[0];
   if (!row || !row.user_active || !row.membership_active || new Date(row.expires_at).getTime() <= Date.now()) { if (row) await db.query('DELETE FROM sessions WHERE token_hash = $1', [tokenHash(token)]); return null; }
   return { token, session: { user: sessionUser(row), expiresAt: row.expires_at, absoluteExpiresAt: row.absolute_expires_at, csrfToken: csrfFor(token) } satisfies SessionResponse };
+}
+
+export async function renewSession(db: Database, token: string) {
+  const hash = tokenHash(token);
+  const now = Date.now();
+  const result = await db.query<MembershipRow & { expires_at: string; absolute_expires_at: string }>(
+    `SELECT u.id AS user_id, u.username, u.display_name, c.id AS company_id, c.name AS company_name,
+     m.role, u.password_hash, u.failed_attempts, u.locked_until,
+     u.active AS user_active, m.active AS membership_active,
+     s.expires_at, s.absolute_expires_at
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     JOIN memberships m ON m.company_id = s.company_id AND m.user_id = s.user_id
+     JOIN companies c ON c.id = s.company_id
+     WHERE s.token_hash = $1`,
+    [hash],
+  );
+  const row = result.rows[0];
+  if (!row || !row.user_active || !row.membership_active) return null;
+  const absolute = new Date(row.absolute_expires_at).getTime();
+  if (absolute <= now) return null;
+  const proposed = now + SESSION_MS;
+  const capped = Math.min(proposed, absolute);
+  await db.query('UPDATE sessions SET expires_at = $1 WHERE token_hash = $2', [new Date(capped), hash]);
+  const expiresAt = new Date(capped).toISOString();
+  return { token, session: { user: sessionUser(row), expiresAt, absoluteExpiresAt: row.absolute_expires_at, csrfToken: csrfFor(token) } satisfies SessionResponse };
 }
 
 export async function logout(db: Database, token: string, requestId: string) {
