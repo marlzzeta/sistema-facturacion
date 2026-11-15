@@ -41,11 +41,21 @@ export default function EmpresaPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { id: _id, ...payload } = form;
+      const payload = {
+        razonSocial: form.razonSocial,
+        rtn: form.rtn,
+        direccion: form.direccion,
+        correo: form.correo,
+        telefono: form.telefono,
+        resolucionFacturacion: form.resolucionFacturacion,
+        pieFactura: form.pieFactura,
+        logo: form.logo ?? null,
+        version: form.version,
+      };
       const response = await fetch('/api/v1/company', {
         method: 'PATCH', credentials: 'include',
         headers: { 'content-type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) },
-        body: JSON.stringify({ ...payload, logo: form.logo ?? null }),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
         type ApiError = { error?: { message?: string; details?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } } };
