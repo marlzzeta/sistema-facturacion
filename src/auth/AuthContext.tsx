@@ -115,8 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: 'SET_CLIENTES', payload: data.data.map(toLocalClient) });
       }
       if (companyResponse.ok) {
-        const data = await companyResponse.json() as { data: ApiCompany };
-        dispatch({ type: 'UPDATE_EMPRESA', payload: { ...data.data, logo: data.data.logo ?? undefined } });
+        const data = await companyResponse.json() as { data: ApiCompany & { updatedAt?: string } };
+        const { updatedAt: _updatedAt, ...companyData } = data.data;
+        dispatch({ type: 'UPDATE_EMPRESA', payload: { ...companyData, logo: companyData.logo ?? undefined } });
       }
     }).catch(() => undefined);
     return () => { activo = false; };
