@@ -41,14 +41,26 @@ export default function EmpresaPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const { id: _id, ...payload } = form;
       const response = await fetch('/api/v1/company', {
         method: 'PATCH', credentials: 'include',
         headers: { 'content-type': 'application/json', ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}) },
-        body: JSON.stringify({ ...form, logo: form.logo ?? null }),
+        body: JSON.stringify({ ...payload, logo: form.logo ?? null }),
       });
       if (!response.ok) {
-        const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
-        throw new Error(body?.error?.message ?? 'No se pudo guardar la configuración.');
+        type ApiError = { error?: { message?: string; details?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } } };
+        const body = await response.json().catch(() => null) as ApiError | null;
+        const fieldLabels: Record<string, string> = {
+          razonSocial: 'Razón Social', rtn: 'RTN', correo: 'Correo Electrónico',
+          telefono: 'Teléfono', direccion: 'Dirección',
+          resolucionFacturacion: 'Resolución de Facturación', pieFactura: 'Pie de Factura',
+          logo: 'Logo', version: 'Versión',
+        };
+        const fieldErrors = body?.error?.details?.fieldErrors ?? {};
+        const errorFields = Object.entries(fieldErrors)
+          .map(([field, msgs]) => `${fieldLabels[field] ?? field}: ${msgs[0] ?? 'inválido'}`)
+          .join('; ');
+        throw new Error(errorFields || body?.error?.message || 'No se pudo guardar la configuración.');
       }
       const body = await response.json() as { data: Empresa & { logo: string | null } };
       const empresa = { ...body.data, logo: body.data.logo ?? undefined };
