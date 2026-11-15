@@ -7,6 +7,10 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   HOST: z.string().default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+  INIT_COMPANY_SLUG: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/).optional(),
+  INIT_COMPANY_NAME: z.string().min(1).max(200).optional(),
+  INIT_ADMIN_USERNAME: z.string().min(1).max(100).optional(),
+  INIT_ADMIN_PASSWORD: z.string().min(8).optional(),
 });
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env) {

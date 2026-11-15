@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Eye, EyeOff, Building2, AlertCircle } from 'lucide-react';
-import { useAuth } from './AuthContext';
+import { Eye, EyeOff, Building2, AlertCircle, ChevronDown } from 'lucide-react';
+import { useAuth, getCompanySlug } from './AuthContext';
 
 const shakeStyle = `
 @keyframes shake {
@@ -19,8 +19,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [capsLock, setCapsLock] = useState(false);
+  const [companies, setCompanies] = useState<{ slug: string; name: string }[]>([]);
+  const [selectedSlug, setSelectedSlug] = useState(getCompanySlug());
   const [branding, setBranding] = useState<{ razonSocial: string; logo: string | null }>({
-    razonSocial: 'Tecnologías Honduras S.A.', logo: null,
+    razonSocial: 'Sistema de Facturación', logo: null,
   });
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -39,13 +41,29 @@ export default function LoginPage() {
 
   useEffect(() => {
     let active = true;
-    void fetch('/api/v1/branding/demo').then(async response => {
+    void fetch('/api/v1/companies').then(async response => {
+      if (!active || !response.ok) return;
+      const body = await response.json() as { data: { slug: string; name: string }[] };
+      if (!active) return;
+      setCompanies(body.data);
+      const detected = getCompanySlug();
+      const match = body.data.find(c => c.slug === detected);
+      const slug = match?.slug ?? body.data[0]?.slug ?? detected;
+      setSelectedSlug(slug);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedSlug) return;
+    let active = true;
+    void fetch(`/api/v1/branding/${encodeURIComponent(selectedSlug)}`).then(async response => {
       if (!active || !response.ok) return;
       const body = await response.json() as { data: { razonSocial: string; logo: string | null } };
       setBranding(body.data);
     }).catch(() => undefined);
     return () => { active = false; };
-  }, []);
+  }, [selectedSlug]);
 
   const triggerShake = () => {
     const el = errorRef.current;
@@ -64,7 +82,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError('');
-    const result = await auth.login(username, password);
+    const result = await auth.login(username, password, selectedSlug || undefined);
     setLoading(false);
     if (!result.ok) {
       setError(result.error ?? 'Error desconocido.');
@@ -100,6 +118,25 @@ export default function LoginPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="px-8 py-8 space-y-5">
+              {companies.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
+                    Empresa
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedSlug}
+                      onChange={e => setSelectedSlug(e.target.value)}
+                      className="w-full px-4 py-2.5 pr-9 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow text-sm appearance-none"
+                    >
+                      {companies.map(c => (
+                        <option key={c.slug} value={c.slug}>{c.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
                   Usuario

@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createApp } from '../server/app.js';
 import { postgresDatabase } from '../server/db/postgres.js';
 import { readConfig } from '../server/config.js';
+import { ensureAdmin } from '../server/db/setup.js';
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 let initialization: Promise<Handler> | undefined;
@@ -9,6 +10,14 @@ let initialization: Promise<Handler> | undefined;
 async function initialize(): Promise<Handler> {
   const config = readConfig(process.env);
   const db = postgresDatabase(config.DATABASE_URL);
+  if (config.INIT_ADMIN_PASSWORD) {
+    await ensureAdmin(db, {
+      companySlug: config.INIT_COMPANY_SLUG ?? 'demo',
+      companyName: config.INIT_COMPANY_NAME ?? 'Mi Empresa',
+      adminUsername: config.INIT_ADMIN_USERNAME ?? 'admin',
+      adminPassword: config.INIT_ADMIN_PASSWORD,
+    });
+  }
   const app = await createApp({ db, appOrigin: config.APP_ORIGIN, nodeEnv: config.NODE_ENV, secureCookies: true });
   await app.ready();
   return async (req, res) => { app.server.emit('request', req, res); };
