@@ -77,6 +77,13 @@ export async function createApp(options: AppOptions): Promise<FastifyInstance> {
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/ready', async (_request, reply) => { await options.db.query('SELECT 1'); return reply.send({ status: 'ready' }); });
 
+  app.get('/api/v1/companies', async (_request, reply) => {
+    const result = await options.db.query<{ slug: string; name: string }>(
+      'SELECT slug, name FROM companies WHERE active = true ORDER BY name',
+    );
+    return reply.send({ data: result.rows });
+  });
+
   app.get('/api/v1/branding/:slug', async (request, reply) => {
     const params = request.params as { slug: string };
     return reply.send({ data: await getPublicBranding(options.db, params.slug.toLowerCase()) });

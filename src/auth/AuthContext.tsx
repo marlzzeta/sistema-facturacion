@@ -21,14 +21,16 @@ interface ApiCompany extends Omit<Empresa, 'logo'> { logo: string | null; }
 interface AuthContextType {
   sesion: Sesion | null;
   usuarioActual: Usuario | null;
-  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  login: (username: string, password: string, companySlug?: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   tiempoRestante: number;
   csrfToken: string | null;
   syncError: string | null;
 }
 
-function getCompanySlug(): string {
+export function getCompanySlug(): string {
+  const envSlug = import.meta.env.VITE_COMPANY_SLUG as string | undefined;
+  if (envSlug && /^[a-z0-9][a-z0-9-]{1,62}$/.test(envSlug)) return envSlug;
   const host = window.location.hostname;
   if (host === 'localhost' || /^\d+(\.\d+){3}$/.test(host)) return 'demo';
   const sub = host.split('.')[0];
@@ -237,9 +239,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [logout, sesion]);
 
-  const login = async (username: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+  const login = async (username: string, password: string, companySlug?: string): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ company: getCompanySlug(), username: username.trim(), password }) });
+      const response = await fetch(`${API_BASE}/auth/login`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ company: companySlug ?? getCompanySlug(), username: username.trim(), password }) });
       if (!response.ok) return { ok: false, error: await readApiError(response) };
       const data = await response.json() as ApiSessionResponse;
       csrfRef.current = data.csrfToken ?? null; setCsrfToken(csrfRef.current);
