@@ -74,12 +74,12 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-slate-900 overflow-hidden">
+    <div className="flex h-dvh bg-[#f3f6fb] dark:bg-slate-900 overflow-hidden">
       <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <Topbar currentPage={currentPage} usuarioActual={usuarioActual} />
-        {syncError && <div role="alert" className="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-700">{syncError}</div>}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        {syncError && <div role="alert" className="mx-4 md:mx-8 mb-2 rounded-xl bg-rose-50 border border-rose-200 px-4 py-2 text-sm text-rose-700">{syncError}</div>}
+        <main className="flex-1 overflow-y-auto px-4 pb-6 pt-2 md:px-8 md:pb-8">
           {renderPage()}
         </main>
       </div>

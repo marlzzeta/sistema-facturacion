@@ -63,9 +63,9 @@ export default function ClientesPage() {
   const columns: Column<Cliente>[] = [
     { key: 'nombre', header: 'Nombre' },
     { key: 'rtn', header: 'RTN / DNI', render: r => r.rtn || r.dni },
-    { key: 'telefono', header: 'Teléfono' },
+    { key: 'telefono', header: 'Teléfono', className: 'hidden lg:table-cell' },
     { key: 'condicionPago', header: 'Condición', render: r => <Badge variant={r.condicionPago === 'credito' ? 'warning' : 'default'}>{r.condicionPago === 'credito' ? 'Crédito' : 'Contado'}</Badge> },
-    { key: 'exentoImpuesto', header: 'Exento', render: r => r.exentoImpuesto ? <Badge variant="success">Sí</Badge> : <Badge>No</Badge> },
+    { key: 'exentoImpuesto', header: 'Exento', className: 'hidden lg:table-cell', render: r => r.exentoImpuesto ? <Badge variant="success">Sí</Badge> : <Badge>No</Badge> },
     { key: 'activo', header: 'Estado', render: r => <Badge variant={r.activo ? 'success' : 'danger'}>{r.activo ? 'Activo' : 'Inactivo'}</Badge> },
     {
       key: 'actions', header: 'Acciones',
@@ -86,17 +86,17 @@ export default function ClientesPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Cliente' : 'Nuevo Cliente'} size="xl"
         footer={<><Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button><Button onClick={handleSave}>Guardar</Button></>}
       >
-        <div className="grid grid-cols-2 gap-4">
-          <Input as="input" label="Nombre / Razón Social" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} wrapperClassName="col-span-2" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input as="input" label="Nombre / Razón Social" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} wrapperClassName="sm:col-span-2" />
           <Input as="input" label="RTN" value={form.rtn} onChange={e => setForm(p => ({ ...p, rtn: e.target.value }))} placeholder="00000000000000" />
           <Input as="input" label="DNI" value={form.dni} onChange={e => setForm(p => ({ ...p, dni: e.target.value }))} placeholder="0000-0000-00000" />
           <Input as="input" type="email" label="Correo" value={form.correo} onChange={e => setForm(p => ({ ...p, correo: e.target.value }))} />
           <Input as="input" label="Teléfono" value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))} />
-          <Input as="textarea" label="Dirección" value={form.direccion} onChange={e => setForm(p => ({ ...p, direccion: e.target.value }))} wrapperClassName="col-span-2" />
+          <Input as="textarea" label="Dirección" value={form.direccion} onChange={e => setForm(p => ({ ...p, direccion: e.target.value }))} wrapperClassName="sm:col-span-2" />
           <Input as="select" label="Condición de Pago" value={form.condicionPago} onChange={e => setForm(p => ({ ...p, condicionPago: e.target.value as Cliente['condicionPago'] }))}
             options={[{ value: 'contado', label: 'Contado' }, { value: 'credito', label: 'Crédito' }]} />
           <Input as="input" type="number" label="Límite de Crédito (L.)" value={form.limitCredito} onChange={e => setForm(p => ({ ...p, limitCredito: Number(e.target.value) }))} />
-          <div className="col-span-2 flex gap-6">
+          <div className="sm:col-span-2 flex gap-6">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.exentoImpuesto} onChange={e => setForm(p => ({ ...p, exentoImpuesto: e.target.checked }))} className="rounded border-gray-300 text-blue-600" />
               <span className="text-sm text-gray-700 dark:text-slate-300">Exento de Impuestos</span>

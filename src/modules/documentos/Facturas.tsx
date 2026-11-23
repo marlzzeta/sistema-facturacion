@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Plus, Eye, Printer, Ban, ChevronLeft, ChevronRight,
-  Search, Trash2, AlertCircle, CheckCircle, X
+  Search, Trash2, AlertCircle, CheckCircle, X, Wallet, FileClock,
 } from 'lucide-react';
 import { useStore, uuid } from '../../store';
 import { useAuth } from '../../auth/AuthContext';
@@ -13,6 +13,7 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
+import StatCard from '../../components/ui/StatCard';
 import type { Factura, LineaFactura, PuntoEmision } from '../../types';
 import { fmtMoney, fmtNum } from '../../utils/format';
 import { calculateInvoiceLine, calculateInvoiceTotals } from '../../utils/invoice';
@@ -57,7 +58,7 @@ function ItemSearchInput({
   const getStock = (id: string) => articulos.find(a => a.id === id)?.stock;
 
   return (
-    <div className="col-span-2 flex flex-col gap-1" ref={wrapRef}>
+    <div className="sm:col-span-2 flex flex-col gap-1" ref={wrapRef}>
       <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Artículo / Servicio</label>
       <div className="relative">
         <div
@@ -625,7 +626,7 @@ export default function FacturasPage() {
 
   const columns: Column<Factura>[] = [
     { key: 'numero', header: 'N° Factura', render: r => <span className="font-mono text-xs font-medium">{r.numero}</span> },
-    { key: 'fecha', header: 'Fecha' },
+    { key: 'fecha', header: 'Fecha', className: 'hidden md:table-cell' },
     { key: 'clienteId', header: 'Cliente', render: r => getClienteNombre(r.clienteId) },
     {
       key: 'total', header: 'Total',
@@ -667,23 +668,23 @@ export default function FacturasPage() {
 
         <StepIndicator step={step} />
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
+        <div className="card p-6">
           {/* ── Step 1: Datos Generales ── */}
           {step === 1 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-gray-800 dark:text-slate-200 mb-4">Datos Generales</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input as="input" type="date" label="Fecha" value={form.fecha} onChange={e => setForm(p => ({ ...p, fecha: e.target.value }))} />
                 <Input as="select" label="Moneda" value={form.monedaId} onChange={e => setForm(p => ({ ...p, monedaId: e.target.value }))}
                   options={state.tiposMoneda.filter(m => m.activo).map(m => ({ value: m.id, label: `${m.nombre} (${m.codigoIso})` }))} />
                 <Input as="select" label="Establecimiento" value={form.establecimientoId}
                   onChange={e => setForm(p => ({ ...p, establecimientoId: e.target.value, puntoEmisionId: '' }))}
-                  wrapperClassName="col-span-2">
+                  wrapperClassName="sm:col-span-2">
                   <option value="">— Seleccione —</option>
                   {activeEsts.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                 </Input>
                 {form.establecimientoId && (
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <Input as="select" label="Punto de Emisión" value={form.puntoEmisionId}
                       onChange={e => setForm(p => ({ ...p, puntoEmisionId: e.target.value }))}>
                       <option value="">— Seleccione —</option>
@@ -695,7 +696,7 @@ export default function FacturasPage() {
                   </div>
                 )}
                 {selectedPE && (
-                  <div className="col-span-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/60 rounded-lg text-xs text-blue-950 dark:text-blue-100 space-y-1">
+                  <div className="sm:col-span-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/60 rounded-lg text-xs text-blue-950 dark:text-blue-100 space-y-1">
                     <p><span className="font-semibold text-blue-800 dark:text-blue-200">CAI:</span> <span className="font-mono break-all">{selectedPE.cai}</span></p>
                     <p><span className="font-semibold text-blue-800 dark:text-blue-200">Vigencia:</span> {selectedPE.fechaVigencia}</p>
                     <p><span className="font-semibold text-blue-800 dark:text-blue-200">Correlativos disponibles:</span> {selectedPE.rangoHasta - selectedPE.correlativoActual + 1}</p>
@@ -769,7 +770,7 @@ export default function FacturasPage() {
               {addingLine && (
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800 space-y-3">
                   <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Nuevo Ítem</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <ItemSearchInput
                       allItems={allItems}
                       articulos={state.articulos.filter(a => a.activo)}
@@ -781,7 +782,7 @@ export default function FacturasPage() {
                     <PrecioInput sym={sym} value={lineForm.precio} onChange={v => setLineForm(p => ({ ...p, precio: v }))} />
                     <Input as="input" type="number" label="Descuento (%)" value={lineForm.descuento} min={0} max={100}
                       onChange={e => setLineForm(p => ({ ...p, descuento: Number(e.target.value) }))} />
-                    <div className="col-span-2 flex flex-col gap-1">
+                    <div className="sm:col-span-2 flex flex-col gap-1">
                       <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Detalle adicional</label>
                       <textarea
                         rows={2}
@@ -793,7 +794,7 @@ export default function FacturasPage() {
                     </div>
 
                     {lineForm.itemId && (
-                      <div className="col-span-2 text-xs bg-white dark:bg-slate-800 p-2 rounded border border-gray-200 dark:border-slate-700">
+                      <div className="sm:col-span-2 text-xs bg-white dark:bg-slate-800 p-2 rounded border border-gray-200 dark:border-slate-700">
                         {(() => {
                           const l = calcLine();
                           return (
@@ -932,6 +933,15 @@ export default function FacturasPage() {
   }
 
   // ── List view ─────────────────────────────────────────────────────────────
+  const emitidas = state.facturas.filter(f => f.estado === 'emitido');
+  const borradores = state.facturas.filter(f => f.estado === 'borrador').length;
+  const anuladas = state.facturas.filter(f => f.estado === 'anulado').length;
+  const monedasEmitidas = new Set(emitidas.map(f => f.monedaId));
+  const monedaUnica = monedasEmitidas.size === 1 ? state.tiposMoneda.find(m => m.id === emitidas[0].monedaId) : undefined;
+  const totalEmitido = monedasEmitidas.size > 1
+    ? 'Varias monedas'
+    : fmtMoney(emitidas.reduce((sum, f) => sum + f.total, 0), monedaUnica?.simbolo ?? state.tiposMoneda[0]?.simbolo);
+
   return (
     <div>
       <PageHeader
@@ -939,6 +949,12 @@ export default function FacturasPage() {
         subtitle={`${state.facturas.length} factura(s) registrada(s)`}
         action={<Button icon={<Plus size={16} />} onClick={() => { setView('new'); setStep(1); }}>Nueva Factura</Button>}
       />
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <StatCard label="Total emitido" value={totalEmitido} icon={<Wallet size={20} />} tone="blue" />
+        <StatCard label="Emitidas" value={emitidas.length} icon={<CheckCircle size={20} />} tone="green" />
+        <StatCard label="Borradores" value={borradores} icon={<FileClock size={20} />} tone="amber" />
+        <StatCard label="Anuladas" value={anuladas} icon={<Ban size={20} />} tone="rose" />
+      </div>
       <Table columns={columns} data={state.facturas} emptyMessage="No hay facturas. Haga clic en 'Nueva Factura' para comenzar." />
 
       {/* Print modal */}

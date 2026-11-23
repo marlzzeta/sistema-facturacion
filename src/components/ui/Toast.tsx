@@ -41,7 +41,7 @@ function ToastItem({ item, onRemove }: { item: ToastItem; onRemove: (id: string)
   return (
     <div
       className={[
-        'flex items-start gap-3 bg-white dark:bg-slate-800 shadow-lg rounded-lg px-4 py-3 min-w-[280px] max-w-sm',
+        'flex items-start gap-3 bg-white dark:bg-slate-800 shadow-xl shadow-slate-900/10 rounded-2xl px-4 py-3 min-w-[260px] max-w-[calc(100vw-2rem)] sm:max-w-sm',
         bgClass[item.type],
         'animate-[slideIn_0.2s_ease-out]',
       ].join(' ')}

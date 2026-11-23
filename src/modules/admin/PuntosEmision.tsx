@@ -115,15 +115,15 @@ export default function PuntosEmisionPage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
-          <Input as="select" label="Establecimiento" value={form.establecimientoId} onChange={e => setForm(p => ({ ...p, establecimientoId: e.target.value }))} options={estOptions} wrapperClassName="col-span-2" />
-          <Input as="input" label="Nombre" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Ej: Caja 01" wrapperClassName="col-span-2" />
-          <Input as="input" label="CAI" value={form.cai} onChange={e => setForm(p => ({ ...p, cai: e.target.value }))} placeholder="XXXXXX-XXXXXX-XXXXXX" wrapperClassName="col-span-2" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input as="select" label="Establecimiento" value={form.establecimientoId} onChange={e => setForm(p => ({ ...p, establecimientoId: e.target.value }))} options={estOptions} wrapperClassName="sm:col-span-2" />
+          <Input as="input" label="Nombre" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Ej: Caja 01" wrapperClassName="sm:col-span-2" />
+          <Input as="input" label="CAI" value={form.cai} onChange={e => setForm(p => ({ ...p, cai: e.target.value }))} placeholder="XXXXXX-XXXXXX-XXXXXX" wrapperClassName="sm:col-span-2" />
           <Input as="input" type="number" label="Correlativo Actual" value={form.correlativoActual} onChange={e => setForm(p => ({ ...p, correlativoActual: Number(e.target.value) }))} />
           <Input as="input" type="date" label="Fecha Vigencia" value={form.fechaVigencia} onChange={e => setForm(p => ({ ...p, fechaVigencia: e.target.value }))} />
           <Input as="input" type="number" label="Rango Desde" value={form.rangoDesde} onChange={e => setForm(p => ({ ...p, rangoDesde: Number(e.target.value) }))} />
           <Input as="input" type="number" label="Rango Hasta" value={form.rangoHasta} onChange={e => setForm(p => ({ ...p, rangoHasta: Number(e.target.value) }))} />
-          <label className="flex items-center gap-2 cursor-pointer col-span-2">
+          <label className="flex items-center gap-2 cursor-pointer sm:col-span-2">
             <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} className="rounded border-gray-300 text-blue-600" />
             <span className="text-sm text-gray-700 dark:text-slate-300">Activo</span>
           </label>

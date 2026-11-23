@@ -9,18 +9,18 @@ interface BadgeProps {
 }
 
 const variantClass: Record<Variant, string> = {
-  success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-  danger: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  default: 'bg-gray-100 text-gray-700 dark:bg-slate-700 dark:text-slate-300',
+  success: 'bg-emerald-50 text-emerald-700 ring-emerald-600/15 dark:bg-emerald-900/30 dark:text-emerald-400 dark:ring-emerald-400/20',
+  warning: 'bg-amber-50 text-amber-700 ring-amber-600/15 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-400/20',
+  danger: 'bg-rose-50 text-rose-700 ring-rose-600/15 dark:bg-rose-900/30 dark:text-rose-400 dark:ring-rose-400/20',
+  info: 'bg-blue-50 text-blue-700 ring-blue-600/15 dark:bg-blue-900/30 dark:text-blue-400 dark:ring-blue-400/20',
+  default: 'bg-slate-100 text-slate-600 ring-slate-500/10 dark:bg-slate-700 dark:text-slate-300 dark:ring-slate-400/20',
 };
 
 export default function Badge({ variant = 'default', children, className = '' }: BadgeProps) {
   return (
     <span
       className={[
-        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset whitespace-nowrap',
         variantClass[variant],
         className,
       ].join(' ')}

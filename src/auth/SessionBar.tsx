@@ -21,7 +21,7 @@ export default function SessionBar() {
     <button
       onClick={resetTimer}
       title="Click para renovar sesión"
-      className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono font-medium transition-colors ${colorClass} ${pulse}`}
+      className={`hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border shadow-sm text-xs font-mono font-medium transition-colors ${colorClass} ${pulse}`}
     >
       <Clock size={13} />
       <span>{formatted}</span>

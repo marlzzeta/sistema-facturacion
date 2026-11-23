@@ -81,7 +81,7 @@ export default function EmpresaPage() {
         }
       />
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 space-y-6">
+      <div className="card p-6 space-y-6">
 
         <LogoField
           label="Logo de la Empresa"
@@ -149,7 +149,7 @@ export default function EmpresaPage() {
         </div>
       </div>
 
-      <div className="mt-6 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
+      <div className="mt-6 card p-6">
         <LogoField
           label="Logo del Sistema"
           help="Se muestra en la pantalla de inicio de sesión y en el menú lateral. Si no se configura, se usa el logo de la empresa."
@@ -158,7 +158,7 @@ export default function EmpresaPage() {
         />
       </div>
 
-      <div className="mt-6 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 space-y-6">
+      <div className="mt-6 card p-6 space-y-6">
         <div>
           <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100">Pestaña del navegador</h2>
           <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Cómo se ve el sistema en la pestaña del navegador.</p>
