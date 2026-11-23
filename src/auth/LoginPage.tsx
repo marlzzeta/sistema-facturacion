@@ -108,7 +108,7 @@ export default function LoginPage() {
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 overflow-hidden">
             {/* Header */}
             <div className="bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700 px-8 py-8 text-center">
-              <div className="w-16 h-16 bg-blue-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
+              <div className={`w-16 h-16 ${systemLogo ? 'bg-white' : 'bg-blue-50 dark:bg-slate-700'} rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden`}>
                 {systemLogo
                   ? <img src={systemLogo} alt="Logo del sistema" className="w-full h-full object-contain p-1" />
                   : <Building2 size={32} className="text-blue-600 dark:text-blue-400" />}
