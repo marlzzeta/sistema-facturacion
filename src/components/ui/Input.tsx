@@ -26,7 +26,7 @@ type Props = InputProps | SelectProps | TextareaProps;
 
 const baseClass = (size: InputSize = 'default', hasError?: boolean) =>
   [
-    'block w-full rounded-xl border bg-white dark:bg-slate-700',
+    'block w-full min-w-0 max-w-full rounded-xl border bg-white dark:bg-slate-700',
     'text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500',
     'focus:outline-none focus:ring-4 focus:ring-blue-500/25 focus:border-blue-500',
     'transition-colors duration-150',
@@ -65,7 +65,7 @@ export default function Input(props: Props) {
   if (!label && !error) return field;
 
   return (
-    <div className={wrapperClassName}>
+    <div className={['min-w-0', wrapperClassName ?? ''].join(' ')}>
       {label && (
         <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">
           {label}
