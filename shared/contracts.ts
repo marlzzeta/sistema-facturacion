@@ -97,12 +97,15 @@ export const companySchema = z.object({
   resolucionFacturacion: z.string().trim().max(150).default(''),
   pieFactura: z.string().trim().max(500).default(''),
   logo: z.union([z.null(), z.literal(''), logoDataUrl]).default(null),
+  // Logo del sistema (login y menú lateral). Si se omite, se conserva el valor actual.
+  logoSistema: z.union([z.null(), z.literal(''), logoDataUrl]).optional(),
   version: z.number().int().positive(),
 }).strict();
 export type CompanyInput = z.infer<typeof companySchema>;
-export interface CompanyRecord extends Omit<CompanyInput, 'logo'> {
+export interface CompanyRecord extends Omit<CompanyInput, 'logo' | 'logoSistema'> {
   id: string;
   logo: string | null;
+  logoSistema: string | null;
   updatedAt: string;
 }
 

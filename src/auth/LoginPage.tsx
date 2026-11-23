@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [capsLock, setCapsLock] = useState(false);
   const [companies, setCompanies] = useState<{ slug: string; name: string }[]>([]);
   const [selectedSlug, setSelectedSlug] = useState(getCompanySlug());
-  const [branding, setBranding] = useState<{ razonSocial: string; logo: string | null }>({
+  const [branding, setBranding] = useState<{ razonSocial: string; logo: string | null; logoSistema?: string | null }>({
     razonSocial: 'Sistema de Facturación', logo: null,
   });
   const errorRef = useRef<HTMLDivElement>(null);
@@ -59,11 +59,14 @@ export default function LoginPage() {
     let active = true;
     void fetch(`/api/v1/branding/${encodeURIComponent(selectedSlug)}`).then(async response => {
       if (!active || !response.ok) return;
-      const body = await response.json() as { data: { razonSocial: string; logo: string | null } };
+      const body = await response.json() as { data: { razonSocial: string; logo: string | null; logoSistema?: string | null } };
       setBranding(body.data);
     }).catch(() => undefined);
     return () => { active = false; };
   }, [selectedSlug]);
+
+  // El logo del sistema tiene prioridad; si no existe se usa el de la empresa.
+  const systemLogo = branding.logoSistema || branding.logo;
 
   const triggerShake = () => {
     const el = errorRef.current;
@@ -106,8 +109,8 @@ export default function LoginPage() {
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-8 text-center">
               <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm overflow-hidden">
-                {branding.logo
-                  ? <img src={branding.logo} alt={`Logo de ${branding.razonSocial}`} className="w-full h-full object-contain p-1" />
+                {systemLogo
+                  ? <img src={systemLogo} alt="Logo del sistema" className="w-full h-full object-contain p-1" />
                   : <Building2 size={32} className="text-white" />}
               </div>
               <h1 className="text-xl font-bold text-white leading-tight">

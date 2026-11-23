@@ -7,7 +7,8 @@ export interface Empresa {
   telefono: string;
   resolucionFacturacion: string;
   pieFactura: string;
-  logo?: string; // base64 data URL
+  logo?: string; // base64 data URL — logo de la empresa (facturas)
+  logoSistema?: string; // base64 data URL — logo del sistema (login y menú lateral)
   version: number;
 }
 
