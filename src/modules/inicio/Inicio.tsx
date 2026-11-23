@@ -41,8 +41,8 @@ export default function InicioPage({ onNavigate }: InicioProps) {
     // Si hay varias monedas, los montos se suman solo en la moneda más usada.
     const conteo = new Map<string, number>();
     emitidas.forEach(f => conteo.set(f.monedaId, (conteo.get(f.monedaId) ?? 0) + 1));
-    const monedaId = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-    const moneda = state.tiposMoneda.find(m => m.id === monedaId) ?? state.tiposMoneda[0];
+    const monedaId = [...conteo.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
+    const moneda = state.tiposMoneda.find(m => m.id === monedaId) ?? state.tiposMoneda.find(m => m.activo) ?? state.tiposMoneda[0];
     const variasMonedas = conteo.size > 1;
     const enMoneda = emitidas.filter(f => f.monedaId === monedaId);
 
@@ -78,8 +78,15 @@ export default function InicioPage({ onNavigate }: InicioProps) {
   const nombreCliente = (id: string) => state.clientes.find(c => c.id === id)?.nombre ?? 'Cliente';
   const simboloDe = (f: Factura) => state.tiposMoneda.find(m => m.id === f.monedaId)?.simbolo;
 
-  const variacionTexto = datos.variacion === null ? undefined
-    : `${datos.variacion >= 0 ? '▲' : '▼'} ${Math.abs(datos.variacion).toFixed(0)}% vs. mes anterior`;
+  const variacionTexto = (() => {
+    const v = datos.variacion;
+    if (v === null) return datos.mesActual.total > 0 ? 'Nuevo este mes' : undefined;
+    if (Math.abs(v) < 0.5) return 'Sin cambio vs. mes anterior';
+    const pct = Math.abs(v) > 999 ? '>999' : Math.abs(v).toFixed(0);
+    return `${v > 0 ? '▲' : '▼'} ${pct}% vs. mes anterior`;
+  })();
+  const notaMoneda = datos.variasMonedas ? `Solo en ${datos.moneda?.nombre ?? 'moneda principal'}` : undefined;
+  const sinVentas = datos.meses.every(m => m.total === 0);
 
   return (
     <div className="space-y-6">
@@ -99,9 +106,9 @@ export default function InicioPage({ onNavigate }: InicioProps) {
       {/* Indicadores */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Ventas del mes" value={fmtMoney(datos.mesActual.total, sym)} hint={variacionTexto} icon={<Wallet size={20} />} tone="blue" />
-        <StatCard label="Facturas emitidas" value={datos.emitidas.length} icon={<FileCheck2 size={20} />} tone="green" />
+        <StatCard label="Total emitidas" value={datos.emitidas.length} icon={<FileCheck2 size={20} />} tone="green" />
         <StatCard label="Clientes activos" value={clientesActivos} icon={<Users size={20} />} tone="amber" />
-        <StatCard label="Ticket promedio" value={fmtMoney(datos.promedio, sym)} icon={<Receipt size={20} />} tone="rose" />
+        <StatCard label="Ticket promedio" value={fmtMoney(datos.promedio, sym)} hint={notaMoneda} icon={<Receipt size={20} />} tone="rose" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -110,7 +117,7 @@ export default function InicioPage({ onNavigate }: InicioProps) {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h2 id="ventas-titulo" className="text-sm font-medium text-slate-500 dark:text-slate-400">Ventas mensuales</h2>
-              <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100" aria-live="polite">
                 {fmtMoney(datos.meses[activo].total, sym)}
               </p>
               <p className="text-xs text-slate-400 dark:text-slate-500">{datos.meses[activo].etiqueta} · facturas emitidas</p>
@@ -119,20 +126,23 @@ export default function InicioPage({ onNavigate }: InicioProps) {
               <span className="text-xs text-slate-500 dark:text-slate-400">Montos en {datos.moneda?.nombre ?? 'moneda principal'}</span>
             )}
           </div>
-          <div className="mt-6 flex items-end gap-2 sm:gap-4 h-44" role="list" aria-label="Ventas de los últimos 6 meses">
+          {sinVentas && (
+            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">Sin ventas en los últimos 6 meses.</p>
+          )}
+          <ul className="mt-6 flex items-end gap-2 sm:gap-4 h-44" aria-label="Ventas de los últimos 6 meses" onMouseLeave={() => setSeleccion(null)}>
             {datos.meses.map((m, i) => {
               const alto = Math.max((m.total / maxMes) * 100, 4);
               const esActivo = i === activo;
               return (
+                <li key={m.clave} className="flex-1 h-full">
                 <button
-                  key={m.clave}
                   type="button"
-                  role="listitem"
                   onClick={() => setSeleccion(i)}
                   onMouseEnter={() => setSeleccion(i)}
+                  onFocus={() => setSeleccion(i)}
                   aria-label={`${m.etiqueta}: ${fmtMoney(m.total, sym)}`}
                   aria-pressed={esActivo}
-                  className="group flex-1 h-full flex flex-col items-center justify-end gap-2 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="group w-full h-full flex flex-col items-center justify-end gap-2 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
                   <span
                     className={[
@@ -145,14 +155,16 @@ export default function InicioPage({ onNavigate }: InicioProps) {
                     {m.etiqueta}
                   </span>
                 </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </section>
 
         {/* Mejores clientes */}
         <section className="card p-5 sm:p-6" aria-labelledby="clientes-titulo">
           <h2 id="clientes-titulo" className="text-base font-semibold text-slate-900 dark:text-slate-100">Mejores clientes</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Histórico · facturas emitidas{notaMoneda ? ` · ${notaMoneda.toLowerCase()}` : ''}</p>
           {datos.topClientes.length === 0 ? (
             <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">Aún no hay facturas emitidas.</p>
           ) : (
