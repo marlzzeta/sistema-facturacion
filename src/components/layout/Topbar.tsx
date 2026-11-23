@@ -24,6 +24,7 @@ const pageTitles: Record<string, string> = {
   monedas: 'Monedas',
   'formas-pago': 'Formas de Pago',
   facturas: 'Facturas',
+  inicio: 'Inicio',
 };
 
 export default function Topbar({ currentPage, usuarioActual: usuarioProp }: TopbarProps) {

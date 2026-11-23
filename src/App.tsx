@@ -26,13 +26,16 @@ import TiposRetencionPage from './modules/parametros/TiposRetencion';
 import TiposMonedaPage from './modules/parametros/TiposMoneda';
 import FormasPagoPage from './modules/parametros/FormasPago';
 
+// Inicio
+import InicioPage from './modules/inicio/Inicio';
+
 // Documentos
 import FacturasPage from './modules/documentos/Facturas';
 
 function AppContent() {
   const { state } = useStore();
   const { sesion, usuarioActual, syncError } = useAuth();
-  const [currentPage, setCurrentPage] = useState('facturas');
+  const [currentPage, setCurrentPage] = useState('inicio');
 
   // Apply dark class to <html>
   useEffect(() => {
@@ -69,7 +72,8 @@ function AppContent() {
       case 'monedas': return <TiposMonedaPage />;
       case 'formas-pago': return <FormasPagoPage />;
       case 'facturas': return <FacturasPage />;
-      default: return <FacturasPage />;
+      case 'inicio': return <InicioPage onNavigate={setCurrentPage} />;
+      default: return <InicioPage onNavigate={setCurrentPage} />;
     }
   };
 
