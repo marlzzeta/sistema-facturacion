@@ -107,16 +107,16 @@ export default function LoginPage() {
           {/* Card */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 overflow-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-8 text-center">
-              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700 px-8 py-8 text-center">
+              <div className="w-16 h-16 bg-blue-50 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
                 {systemLogo
                   ? <img src={systemLogo} alt="Logo del sistema" className="w-full h-full object-contain p-1" />
-                  : <Building2 size={32} className="text-white" />}
+                  : <Building2 size={32} className="text-blue-600 dark:text-blue-400" />}
               </div>
-              <h1 className="text-xl font-bold text-white leading-tight">
+              <h1 className="text-xl font-bold text-blue-700 dark:text-blue-400 leading-tight">
                 Sistema de Facturación
               </h1>
-              <p className="text-blue-200 text-sm mt-1">{branding.razonSocial}</p>
+              <p className="text-blue-500 dark:text-blue-300 text-sm mt-1">{branding.razonSocial}</p>
             </div>
 
             {/* Form */}
