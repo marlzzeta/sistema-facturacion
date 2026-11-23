@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Eye, EyeOff, Building2, AlertCircle, ChevronDown } from 'lucide-react';
 import { useAuth, getCompanySlug } from './AuthContext';
+import { applyBrowserBranding } from '../utils/browserBranding';
 
 const shakeStyle = `
 @keyframes shake {
@@ -21,7 +22,7 @@ export default function LoginPage() {
   const [capsLock, setCapsLock] = useState(false);
   const [companies, setCompanies] = useState<{ slug: string; name: string }[]>([]);
   const [selectedSlug, setSelectedSlug] = useState(getCompanySlug());
-  const [branding, setBranding] = useState<{ razonSocial: string; logo: string | null; logoSistema?: string | null }>({
+  const [branding, setBranding] = useState<{ razonSocial: string; logo: string | null; logoSistema?: string | null; favicon?: string | null; tituloPestana?: string }>({
     razonSocial: 'Sistema de Facturación', logo: null,
   });
   const errorRef = useRef<HTMLDivElement>(null);
@@ -59,11 +60,15 @@ export default function LoginPage() {
     let active = true;
     void fetch(`/api/v1/branding/${encodeURIComponent(selectedSlug)}`).then(async response => {
       if (!active || !response.ok) return;
-      const body = await response.json() as { data: { razonSocial: string; logo: string | null; logoSistema?: string | null } };
+      const body = await response.json() as { data: { razonSocial: string; logo: string | null; logoSistema?: string | null; favicon?: string | null; tituloPestana?: string } };
       setBranding(body.data);
     }).catch(() => undefined);
     return () => { active = false; };
   }, [selectedSlug]);
+
+  useEffect(() => {
+    applyBrowserBranding(branding.tituloPestana, branding.favicon);
+  }, [branding.tituloPestana, branding.favicon]);
 
   // El logo del sistema tiene prioridad; si no existe se usa el de la empresa.
   const systemLogo = branding.logoSistema || branding.logo;

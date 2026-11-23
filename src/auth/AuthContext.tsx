@@ -17,7 +17,7 @@ interface ApiSessionUser {
 }
 interface ApiSessionResponse { user: ApiSessionUser; csrfToken?: string | null; }
 interface ApiClient { id: string; version: number; nombre: string; rtn: string; dni: string; correo: string; telefono: string; direccion: string; condicionPago: 'contado' | 'credito'; limitCredito: string; exentoImpuesto: boolean; activo: boolean; }
-interface ApiCompany extends Omit<Empresa, 'logo' | 'logoSistema'> { logo: string | null; logoSistema?: string | null; }
+interface ApiCompany extends Omit<Empresa, 'logo' | 'logoSistema' | 'favicon'> { logo: string | null; logoSistema?: string | null; favicon?: string | null; }
 interface AuthContextType {
   sesion: Sesion | null;
   usuarioActual: Usuario | null;
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (companyResponse.ok) {
         const data = await companyResponse.json() as { data: ApiCompany & { updatedAt?: string } };
         const { updatedAt: _updatedAt, ...companyData } = data.data;
-        dispatch({ type: 'UPDATE_EMPRESA', payload: { ...companyData, logo: companyData.logo ?? undefined, logoSistema: companyData.logoSistema ?? undefined } });
+        dispatch({ type: 'UPDATE_EMPRESA', payload: { ...companyData, logo: companyData.logo ?? undefined, logoSistema: companyData.logoSistema ?? undefined, favicon: companyData.favicon ?? undefined } });
       }
     }).catch(() => undefined);
     return () => { activo = false; };
