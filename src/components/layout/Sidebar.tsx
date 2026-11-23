@@ -3,7 +3,7 @@ import {
   Building2, MapPin, Printer, Users, UserCheck,
   BookUser, Package, Wrench, FileText, Percent,
   RefreshCw, Coins, CreditCard, FileSpreadsheet,
-  ChevronDown, ChevronRight, Menu, X, Receipt,
+  ChevronDown, ChevronRight, Menu, X, Receipt, LayoutDashboard,
 } from 'lucide-react';
 import { useStore } from '../../store';
 
@@ -19,6 +19,12 @@ interface NavSection {
 }
 
 const sections: NavSection[] = [
+  {
+    title: 'General',
+    items: [
+      { key: 'inicio', label: 'Inicio', icon: <LayoutDashboard size={18} /> },
+    ],
+  },
   {
     title: 'Administración',
     items: [
@@ -65,7 +71,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    Administración: true, Catálogos: true, Parámetros: false, Documentos: true,
+    General: true, Administración: true, Catálogos: true, Parámetros: false, Documentos: true,
   });
 
   const toggleSection = (title: string) => {
