@@ -77,6 +77,9 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
     setMobileOpen(false);
   };
 
+  // El logo del sistema tiene prioridad; si no existe se usa el de la empresa.
+  const systemLogo = state.empresa.logoSistema || state.empresa.logo;
+
   const sidebarContent = (
     <nav className="flex flex-col h-full">
       {/* Logo */}
@@ -89,7 +92,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           collapsed ? 'md:hidden' : '',
         ].join(' ')}>
           <Receipt size={18} className="text-white" />
-          {state.empresa.logo && <img src={state.empresa.logo} alt={`Logo de ${state.empresa.razonSocial}`} className="absolute inset-0 w-full h-full object-contain rounded-lg bg-white p-0.5" />}
+          {systemLogo && <img src={systemLogo} alt="Logo del sistema" className="absolute inset-0 w-full h-full object-contain rounded-lg bg-white p-0.5" />}
         </div>
         <div className={['overflow-hidden', collapsed ? 'md:hidden' : ''].join(' ')}>
           <p className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-tight">SisFactura</p>

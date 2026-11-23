@@ -14,28 +14,9 @@ export default function EmpresaPage() {
   const { toast } = useToast();
   const [form, setForm] = useState<Empresa>({ ...state.empresa });
   const [saving, setSaving] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const set = (field: keyof Empresa) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
-  };
-
-  const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-      toast.error('El logo debe ser PNG, JPG o WebP.');
-      e.target.value = '';
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('El logo no debe superar 2 MB.');
-      e.target.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setForm(prev => ({ ...prev, logo: reader.result as string }));
-    reader.readAsDataURL(file);
   };
 
   const handleSave = async () => {
@@ -50,6 +31,7 @@ export default function EmpresaPage() {
         resolucionFacturacion: form.resolucionFacturacion,
         pieFactura: form.pieFactura,
         logo: form.logo ?? null,
+        logoSistema: form.logoSistema ?? null,
         version: form.version,
       };
       const response = await fetch('/api/v1/company', {
@@ -64,7 +46,7 @@ export default function EmpresaPage() {
           razonSocial: 'Razón Social', rtn: 'RTN', correo: 'Correo Electrónico',
           telefono: 'Teléfono', direccion: 'Dirección',
           resolucionFacturacion: 'Resolución de Facturación', pieFactura: 'Pie de Factura',
-          logo: 'Logo', version: 'Versión',
+          logo: 'Logo de la Empresa', logoSistema: 'Logo del Sistema', version: 'Versión',
         };
         const fieldErrors = body?.error?.details?.fieldErrors ?? {};
         const errorFields = Object.entries(fieldErrors)
@@ -72,8 +54,8 @@ export default function EmpresaPage() {
           .join('; ');
         throw new Error(errorFields || body?.error?.message || 'No se pudo guardar la configuración.');
       }
-      const body = await response.json() as { data: Empresa & { logo: string | null } };
-      const empresa = { ...body.data, logo: body.data.logo ?? undefined };
+      const body = await response.json() as { data: Omit<Empresa, 'logo' | 'logoSistema'> & { logo: string | null; logoSistema: string | null } };
+      const empresa: Empresa = { ...body.data, logo: body.data.logo ?? undefined, logoSistema: body.data.logoSistema ?? undefined };
       dispatch({ type: 'UPDATE_EMPRESA', payload: empresa });
       setForm(empresa);
       toast.success('Datos de la empresa guardados correctamente.');
@@ -96,47 +78,12 @@ export default function EmpresaPage() {
 
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 space-y-6">
 
-        {/* Logo upload */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
-            Logo de la Empresa
-          </label>
-          <div className="flex items-center gap-4">
-            {form.logo ? (
-              <div className="relative group">
-                <img
-                  src={form.logo}
-                  alt="Logo"
-                  className="h-20 w-auto max-w-[200px] object-contain rounded-lg border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2"
-                />
-                <button
-                  onClick={() => { setForm(prev => ({ ...prev, logo: undefined })); if (fileRef.current) fileRef.current.value = ''; }}
-                  className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Eliminar logo"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ) : (
-              <div className="h-20 w-40 rounded-lg border-2 border-dashed border-gray-300 dark:border-slate-600 flex items-center justify-center bg-gray-50 dark:bg-slate-700">
-                <span className="text-xs text-gray-400 dark:text-slate-500 text-center px-2">Sin logo</span>
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={handleLogo}
-              />
-              <Button variant="secondary" size="sm" icon={<Upload size={14} />} onClick={() => fileRef.current?.click()}>
-                {form.logo ? 'Cambiar Logo' : 'Subir Logo'}
-              </Button>
-              <p className="text-xs text-gray-400 dark:text-slate-500">PNG, JPG o WebP · Máx. 2 MB</p>
-            </div>
-          </div>
-        </div>
+        <LogoField
+          label="Logo de la Empresa"
+          help="Se usa en las facturas y documentos de la empresa."
+          value={form.logo}
+          onChange={logo => setForm(prev => ({ ...prev, logo }))}
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
@@ -194,6 +141,80 @@ export default function EmpresaPage() {
             placeholder="Texto que aparece al pie de cada factura"
             wrapperClassName="sm:col-span-2"
           />
+        </div>
+      </div>
+
+      <div className="mt-6 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6">
+        <LogoField
+          label="Logo del Sistema"
+          help="Se muestra en la pantalla de inicio de sesión y en el menú lateral. Si no se configura, se usa el logo de la empresa."
+          value={form.logoSistema}
+          onChange={logoSistema => setForm(prev => ({ ...prev, logoSistema }))}
+        />
+      </div>
+    </div>
+  );
+}
+
+const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+function LogoField({ label, help, value, onChange }: {
+  label: string; help: string; value?: string; onChange: (value: string | undefined) => void;
+}) {
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast.error('El logo debe ser PNG, JPG o WebP.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('El logo no debe superar 2 MB.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{label}</label>
+      <p className="text-xs text-gray-500 dark:text-slate-400 mb-2">{help}</p>
+      <div className="flex items-center gap-4">
+        {value ? (
+          <div className="relative group">
+            <img
+              src={value}
+              alt={label}
+              className="h-20 w-auto max-w-[200px] object-contain rounded-lg border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2"
+            />
+            <button
+              type="button"
+              onClick={() => { onChange(undefined); if (fileRef.current) fileRef.current.value = ''; }}
+              className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+              title="Eliminar logo"
+              aria-label={`Eliminar ${label.toLowerCase()}`}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ) : (
+          <div className="h-20 w-40 rounded-lg border-2 border-dashed border-gray-300 dark:border-slate-600 flex items-center justify-center bg-gray-50 dark:bg-slate-700">
+            <span className="text-xs text-gray-400 dark:text-slate-500 text-center px-2">Sin logo</span>
+          </div>
+        )}
+        <div className="flex flex-col gap-2">
+          <input ref={fileRef} type="file" accept={ACCEPTED_TYPES.join(',')} className="hidden" onChange={handleFile} />
+          <Button variant="secondary" size="sm" icon={<Upload size={14} />} onClick={() => fileRef.current?.click()}>
+            {value ? 'Cambiar Logo' : 'Subir Logo'}
+          </Button>
+          <p className="text-xs text-gray-400 dark:text-slate-500">PNG, JPG o WebP · Máx. 2 MB</p>
         </div>
       </div>
     </div>

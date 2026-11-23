@@ -32,7 +32,7 @@ describe('backend HTTP foundation', () => {
   it('serves public company branding without exposing fiscal data', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/v1/branding/demo' });
     expect(response.statusCode).toBe(200);
-    expect(response.json().data).toEqual({ razonSocial: 'Demo', logo: null });
+    expect(response.json().data).toEqual({ razonSocial: 'Demo', logo: null, logoSistema: null });
     expect(response.body).not.toContain('tax_id');
   });
 
@@ -71,6 +71,30 @@ describe('backend HTTP foundation', () => {
     expect(branding.json().data.razonSocial).toBe('HMD Cliente S.A.');
     const company = await app.inject({ method: 'GET', url: '/api/v1/company', headers: { cookie } });
     expect(company.json().data.rtn).toBe('08011999123456');
+  });
+
+  it('stores the system logo separately from the company logo', async () => {
+    const systemLogo = 'data:image/png;base64,iVBORw0KGgo=';
+    const current = (await app.inject({ method: 'GET', url: '/api/v1/company', headers: { cookie } })).json().data;
+    const base = {
+      razonSocial: current.razonSocial, rtn: current.rtn, direccion: current.direccion, correo: current.correo,
+      telefono: current.telefono, resolucionFacturacion: current.resolucionFacturacion, pieFactura: current.pieFactura,
+    };
+    const update = await app.inject({
+      method: 'PATCH', url: '/api/v1/company', headers: { cookie, 'x-csrf-token': csrf },
+      payload: { ...base, logo: null, logoSistema: systemLogo, version: current.version },
+    });
+    expect(update.statusCode).toBe(200);
+    expect(update.json().data).toMatchObject({ logo: null, logoSistema: systemLogo });
+    const branding = await app.inject({ method: 'GET', url: '/api/v1/branding/demo' });
+    expect(branding.json().data).toMatchObject({ logo: null, logoSistema: systemLogo });
+    // Omitting logoSistema keeps the stored value.
+    const keep = await app.inject({
+      method: 'PATCH', url: '/api/v1/company', headers: { cookie, 'x-csrf-token': csrf },
+      payload: { ...base, logo: null, version: update.json().data.version },
+    });
+    expect(keep.statusCode).toBe(200);
+    expect(keep.json().data.logoSistema).toBe(systemLogo);
   });
 
   it('creates a real user that can authenticate', async () => {
