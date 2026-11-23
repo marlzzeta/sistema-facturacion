@@ -32,6 +32,8 @@ export default function EmpresaPage() {
         pieFactura: form.pieFactura,
         logo: form.logo ?? null,
         logoSistema: form.logoSistema ?? null,
+        favicon: form.favicon ?? null,
+        tituloPestana: form.tituloPestana ?? '',
         version: form.version,
       };
       const response = await fetch('/api/v1/company', {
@@ -46,7 +48,7 @@ export default function EmpresaPage() {
           razonSocial: 'Razón Social', rtn: 'RTN', correo: 'Correo Electrónico',
           telefono: 'Teléfono', direccion: 'Dirección',
           resolucionFacturacion: 'Resolución de Facturación', pieFactura: 'Pie de Factura',
-          logo: 'Logo de la Empresa', logoSistema: 'Logo del Sistema', version: 'Versión',
+          logo: 'Logo de la Empresa', logoSistema: 'Logo del Sistema', favicon: 'Favicon', tituloPestana: 'Título de la pestaña', version: 'Versión',
         };
         const fieldErrors = body?.error?.details?.fieldErrors ?? {};
         const errorFields = Object.entries(fieldErrors)
@@ -54,8 +56,11 @@ export default function EmpresaPage() {
           .join('; ');
         throw new Error(errorFields || body?.error?.message || 'No se pudo guardar la configuración.');
       }
-      const body = await response.json() as { data: Omit<Empresa, 'logo' | 'logoSistema'> & { logo: string | null; logoSistema: string | null } };
-      const empresa: Empresa = { ...body.data, logo: body.data.logo ?? undefined, logoSistema: body.data.logoSistema ?? undefined };
+      const body = await response.json() as { data: Omit<Empresa, 'logo' | 'logoSistema' | 'favicon'> & { logo: string | null; logoSistema: string | null; favicon: string | null } };
+      const empresa: Empresa = {
+        ...body.data, logo: body.data.logo ?? undefined, logoSistema: body.data.logoSistema ?? undefined,
+        favicon: body.data.favicon ?? undefined,
+      };
       dispatch({ type: 'UPDATE_EMPRESA', payload: empresa });
       setForm(empresa);
       toast.success('Datos de la empresa guardados correctamente.');
@@ -152,14 +157,45 @@ export default function EmpresaPage() {
           onChange={logoSistema => setForm(prev => ({ ...prev, logoSistema }))}
         />
       </div>
+
+      <div className="mt-6 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-6 space-y-6">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100">Pestaña del navegador</h2>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Cómo se ve el sistema en la pestaña del navegador.</p>
+        </div>
+        <Input
+          as="input"
+          label="Título de la pestaña"
+          value={form.tituloPestana ?? ''}
+          onChange={set('tituloPestana')}
+          placeholder="SisFactura"
+        />
+        <LogoField
+          label="Favicon"
+          help="Ícono pequeño que aparece en la pestaña del navegador. Use una imagen cuadrada (por ejemplo 64×64). Si no se configura, se usa el ícono por defecto."
+          value={form.favicon}
+          onChange={favicon => setForm(prev => ({ ...prev, favicon }))}
+          types={FAVICON_TYPES}
+          maxBytes={500 * 1024}
+          formatsLabel="PNG, JPG, WebP o ICO · Máx. 500 KB"
+          previewClassName="h-16 w-16 object-contain rounded-lg border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2"
+        />
+      </div>
     </div>
   );
 }
 
+const FAVICON_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/x-icon', 'image/vnd.microsoft.icon'];
+
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
-function LogoField({ label, help, value, onChange }: {
+function LogoField({
+  label, help, value, onChange, types = ACCEPTED_TYPES, maxBytes = 2 * 1024 * 1024,
+  formatsLabel = 'PNG, JPG o WebP · Máx. 2 MB',
+  previewClassName = 'h-20 w-auto max-w-[200px] object-contain rounded-lg border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2',
+}: {
   label: string; help: string; value?: string; onChange: (value: string | undefined) => void;
+  types?: string[]; maxBytes?: number; formatsLabel?: string; previewClassName?: string;
 }) {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -167,13 +203,13 @@ function LogoField({ label, help, value, onChange }: {
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      toast.error('El logo debe ser PNG, JPG o WebP.');
+    if (!types.includes(file.type)) {
+      toast.error(`${label}: formato no permitido (${formatsLabel.split(' · ')[0]}).`);
       e.target.value = '';
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('El logo no debe superar 2 MB.');
+    if (file.size > maxBytes) {
+      toast.error(`${label}: el archivo es demasiado grande (${formatsLabel.split(' · ')[1] ?? ''}).`);
       e.target.value = '';
       return;
     }
@@ -192,7 +228,7 @@ function LogoField({ label, help, value, onChange }: {
             <img
               src={value}
               alt={label}
-              className="h-20 w-auto max-w-[200px] object-contain rounded-lg border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 p-2"
+              className={previewClassName}
             />
             <button
               type="button"
@@ -210,11 +246,11 @@ function LogoField({ label, help, value, onChange }: {
           </div>
         )}
         <div className="flex flex-col gap-2">
-          <input ref={fileRef} type="file" accept={ACCEPTED_TYPES.join(',')} className="hidden" onChange={handleFile} />
+          <input ref={fileRef} type="file" accept={types.join(',')} className="hidden" onChange={handleFile} />
           <Button variant="secondary" size="sm" icon={<Upload size={14} />} onClick={() => fileRef.current?.click()}>
-            {value ? 'Cambiar Logo' : 'Subir Logo'}
+            {value ? 'Cambiar' : 'Subir'} {label === 'Favicon' ? 'Favicon' : 'Logo'}
           </Button>
-          <p className="text-xs text-gray-400 dark:text-slate-500">PNG, JPG o WebP · Máx. 2 MB</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500">{formatsLabel}</p>
         </div>
       </div>
     </div>

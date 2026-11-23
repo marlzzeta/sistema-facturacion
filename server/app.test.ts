@@ -32,7 +32,7 @@ describe('backend HTTP foundation', () => {
   it('serves public company branding without exposing fiscal data', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/v1/branding/demo' });
     expect(response.statusCode).toBe(200);
-    expect(response.json().data).toEqual({ razonSocial: 'Demo', logo: null, logoSistema: null });
+    expect(response.json().data).toEqual({ razonSocial: 'Demo', logo: null, logoSistema: null, favicon: null, tituloPestana: '' });
     expect(response.body).not.toContain('tax_id');
   });
 
@@ -95,6 +95,29 @@ describe('backend HTTP foundation', () => {
     });
     expect(keep.statusCode).toBe(200);
     expect(keep.json().data.logoSistema).toBe(systemLogo);
+  });
+
+  it('stores the browser tab favicon and title', async () => {
+    const favicon = 'data:image/png;base64,iVBORw0KGgo=';
+    const current = (await app.inject({ method: 'GET', url: '/api/v1/company', headers: { cookie } })).json().data;
+    const base = {
+      razonSocial: current.razonSocial, rtn: current.rtn, direccion: current.direccion, correo: current.correo,
+      telefono: current.telefono, resolucionFacturacion: current.resolucionFacturacion, pieFactura: current.pieFactura,
+      logo: null,
+    };
+    const update = await app.inject({
+      method: 'PATCH', url: '/api/v1/company', headers: { cookie, 'x-csrf-token': csrf },
+      payload: { ...base, favicon, tituloPestana: 'HMD Facturación', version: current.version },
+    });
+    expect(update.statusCode).toBe(200);
+    expect(update.json().data).toMatchObject({ favicon, tituloPestana: 'HMD Facturación' });
+    const branding = await app.inject({ method: 'GET', url: '/api/v1/branding/demo' });
+    expect(branding.json().data).toMatchObject({ favicon, tituloPestana: 'HMD Facturación' });
+    const keep = await app.inject({
+      method: 'PATCH', url: '/api/v1/company', headers: { cookie, 'x-csrf-token': csrf },
+      payload: { ...base, version: update.json().data.version },
+    });
+    expect(keep.json().data).toMatchObject({ favicon, tituloPestana: 'HMD Facturación' });
   });
 
   it('creates a real user that can authenticate', async () => {

@@ -9,6 +9,8 @@ export interface Empresa {
   pieFactura: string;
   logo?: string; // base64 data URL — logo de la empresa (facturas)
   logoSistema?: string; // base64 data URL — logo del sistema (login y menú lateral)
+  favicon?: string; // base64 data URL — ícono de la pestaña del navegador
+  tituloPestana?: string; // título de la pestaña del navegador
   version: number;
 }
 

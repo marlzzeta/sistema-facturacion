@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import LoginPage from './auth/LoginPage';
 import Sidebar from './components/layout/Sidebar';
 import Topbar from './components/layout/Topbar';
+import { applyBrowserBranding } from './utils/browserBranding';
 
 // Admin
 import EmpresaPage from './modules/admin/Empresa';
@@ -42,6 +43,11 @@ function AppContent() {
       html.classList.remove('dark');
     }
   }, [state.temaOscuro]);
+
+  // Título y favicon de la pestaña (dentro del sistema; el login aplica los suyos).
+  useEffect(() => {
+    if (sesion) applyBrowserBranding(state.empresa.tituloPestana, state.empresa.favicon);
+  }, [sesion, state.empresa.tituloPestana, state.empresa.favicon]);
 
   if (!sesion) {
     return <LoginPage />;

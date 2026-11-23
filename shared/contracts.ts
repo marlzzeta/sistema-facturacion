@@ -88,6 +88,10 @@ const logoDataUrl = z.string()
   .max(2_800_000)
   .regex(/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/, 'El logo debe ser PNG, JPG o WebP.');
 
+const faviconDataUrl = z.string()
+  .max(700_000)
+  .regex(/^data:image\/(?:png|jpeg|webp|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/]+={0,2}$/, 'El favicon debe ser PNG, JPG, WebP o ICO.');
+
 export const companySchema = z.object({
   razonSocial: z.string().trim().min(1).max(200),
   rtn: z.union([z.literal(''), z.string().regex(/^\d{14}$/)]).default(''),
@@ -99,13 +103,18 @@ export const companySchema = z.object({
   logo: z.union([z.null(), z.literal(''), logoDataUrl]).default(null),
   // Logo del sistema (login y menú lateral). Si se omite, se conserva el valor actual.
   logoSistema: z.union([z.null(), z.literal(''), logoDataUrl]).optional(),
+  // Pestaña del navegador. Si se omiten, se conservan los valores actuales.
+  favicon: z.union([z.null(), z.literal(''), faviconDataUrl]).optional(),
+  tituloPestana: z.string().trim().max(100).optional(),
   version: z.number().int().positive(),
 }).strict();
 export type CompanyInput = z.infer<typeof companySchema>;
-export interface CompanyRecord extends Omit<CompanyInput, 'logo' | 'logoSistema'> {
+export interface CompanyRecord extends Omit<CompanyInput, 'logo' | 'logoSistema' | 'favicon' | 'tituloPestana'> {
   id: string;
   logo: string | null;
   logoSistema: string | null;
+  favicon: string | null;
+  tituloPestana: string;
   updatedAt: string;
 }
 
