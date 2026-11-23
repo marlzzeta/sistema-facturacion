@@ -34,6 +34,22 @@ body {
   }
 }
 
+/* iOS Safari da a los campos de fecha/hora un ancho mínimo propio que
+   los hace salirse de su contenedor; se fuerza a respetar el ancho. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 2.625rem;
+}
+input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 @media print {
   .no-print { display: none !important; }
 }
