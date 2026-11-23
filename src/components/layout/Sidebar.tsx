@@ -88,15 +88,16 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
         collapsed ? 'md:justify-center md:px-2' : '',
       ].join(' ')}>
         <div className={[
-          'relative w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden',
+          'relative w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden',
+          systemLogo ? 'bg-white' : 'bg-blue-600',
           collapsed ? 'md:hidden' : '',
         ].join(' ')}>
-          <Receipt size={18} className="text-white" />
-          {systemLogo && <img src={systemLogo} alt="Logo del sistema" className="absolute inset-0 w-full h-full object-contain rounded-lg bg-white p-0.5" />}
+          {systemLogo
+            ? <img src={systemLogo} alt="Logo del sistema" className="w-full h-full object-contain p-0.5" />
+            : <Receipt size={18} className="text-white" />}
         </div>
         <div className={['overflow-hidden', collapsed ? 'md:hidden' : ''].join(' ')}>
-          <p className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-tight">SisFactura</p>
-          <p className="text-xs text-gray-500 dark:text-slate-400 truncate max-w-32" title={state.empresa.razonSocial}>{state.empresa.razonSocial}</p>
+          <p className="text-base font-bold text-gray-900 dark:text-slate-100 leading-tight">SisFactura</p>
         </div>
         <button
           type="button"
