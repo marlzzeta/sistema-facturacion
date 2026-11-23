@@ -61,12 +61,12 @@ export default function EmpleadosPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Empleado' : 'Nuevo Empleado'}
         footer={<><Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button><Button onClick={handleSave}>Guardar</Button></>}
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input as="input" label="Nombre" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
           <Input as="input" label="Apellido" value={form.apellido} onChange={e => setForm(p => ({ ...p, apellido: e.target.value }))} />
-          <Input as="input" label="Correo" type="email" value={form.correo} onChange={e => setForm(p => ({ ...p, correo: e.target.value }))} wrapperClassName="col-span-2" />
-          <Input as="input" label="Cargo" value={form.cargo} onChange={e => setForm(p => ({ ...p, cargo: e.target.value }))} wrapperClassName="col-span-2" />
-          <label className="flex items-center gap-2 cursor-pointer col-span-2">
+          <Input as="input" label="Correo" type="email" value={form.correo} onChange={e => setForm(p => ({ ...p, correo: e.target.value }))} wrapperClassName="sm:col-span-2" />
+          <Input as="input" label="Cargo" value={form.cargo} onChange={e => setForm(p => ({ ...p, cargo: e.target.value }))} wrapperClassName="sm:col-span-2" />
+          <label className="flex items-center gap-2 cursor-pointer sm:col-span-2">
             <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} className="rounded border-gray-300 text-blue-600" />
             <span className="text-sm text-gray-700 dark:text-slate-300">Activo</span>
           </label>

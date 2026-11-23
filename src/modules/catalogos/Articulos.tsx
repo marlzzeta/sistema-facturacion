@@ -68,13 +68,13 @@ export default function ArticulosPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Artículo' : 'Nuevo Artículo'}
         footer={<><Button variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button><Button onClick={handleSave}>Guardar</Button></>}
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input as="input" label="Código" value={form.codigo} onChange={e => setForm(p => ({ ...p, codigo: e.target.value }))} placeholder="ART-001" />
-          <Input as="input" label="Descripción" value={form.descripcion} onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))} wrapperClassName="col-span-2" />
+          <Input as="input" label="Descripción" value={form.descripcion} onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))} wrapperClassName="sm:col-span-2" />
           <Input as="input" type="number" label="Precio (L.)" value={form.precio} onChange={e => setForm(p => ({ ...p, precio: Number(e.target.value) }))} />
           <Input as="input" type="number" label="Stock" value={form.stock} onChange={e => setForm(p => ({ ...p, stock: Number(e.target.value) }))} />
-          <Input as="select" label="Tipo de Impuesto" value={form.tipoImpuestoId} onChange={e => setForm(p => ({ ...p, tipoImpuestoId: e.target.value }))} options={impOptions} wrapperClassName="col-span-2" />
-          <label className="flex items-center gap-2 cursor-pointer col-span-2">
+          <Input as="select" label="Tipo de Impuesto" value={form.tipoImpuestoId} onChange={e => setForm(p => ({ ...p, tipoImpuestoId: e.target.value }))} options={impOptions} wrapperClassName="sm:col-span-2" />
+          <label className="flex items-center gap-2 cursor-pointer sm:col-span-2">
             <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} className="rounded border-gray-300 text-blue-600" />
             <span className="text-sm text-gray-700 dark:text-slate-300">Activo</span>
           </label>

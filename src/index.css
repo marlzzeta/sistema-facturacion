@@ -2,17 +2,38 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  background-color: #f3f6fb;
+}
+
+.dark body {
+  background-color: #0f172a;
+}
+
+/* Tarjeta base del sistema: blanca, esquinas amplias y sombra suave. */
+@utility card {
+  background-color: #fff;
+  border-radius: 1.25rem;
+  border: 1px solid rgb(226 232 240 / 0.7);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.10);
+  &:where(.dark, .dark *) {
+    background-color: #1e293b;
+    border-color: #334155;
+    box-shadow: none;
+  }
 }
 
 @media print {
   .no-print { display: none !important; }
 }
-
