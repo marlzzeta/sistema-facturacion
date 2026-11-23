@@ -38,7 +38,7 @@ export default function Modal({ open, onClose, title, children, footer, size = '
       <div
         className={[
           'relative w-full bg-white dark:bg-slate-800 rounded-3xl shadow-2xl shadow-slate-900/20',
-          'flex flex-col max-h-[90vh]',
+          'flex flex-col max-h-[90dvh]',
           sizeClass[size] ?? sizeClass.md,
           'animate-[modal-in_0.15s_ease-out]',
         ].join(' ')}
@@ -51,7 +51,7 @@ export default function Modal({ open, onClose, title, children, footer, size = '
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             <X size={20} />
           </button>
@@ -62,7 +62,7 @@ export default function Modal({ open, onClose, title, children, footer, size = '
         </div>
         {/* Footer */}
         {footer && (
-          <div className="flex flex-wrap items-center justify-end gap-2 px-5 sm:px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800 rounded-b-3xl">
+          <div className="flex flex-wrap items-center justify-end gap-2 px-5 sm:px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/30 rounded-b-3xl">
             {footer}
           </div>
         )}

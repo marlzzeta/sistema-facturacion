@@ -4,6 +4,8 @@ export interface Column<T> {
   key: string;
   header: string;
   render?: (row: T) => React.ReactNode;
+  /** Clases extra para la celda y su encabezado (p. ej. ocultar en móvil). */
+  className?: string;
 }
 
 interface TableProps<T extends { id: string }> {
@@ -21,7 +23,7 @@ export default function Table<T extends { id: string }>({ columns, data, emptyMe
             {columns.map(col => (
               <th
                 key={col.key}
-                className="px-5 py-3.5 text-left text-xs font-medium text-slate-400 dark:text-slate-400 whitespace-nowrap"
+                className={`px-5 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap ${col.className ?? ''}`}
               >
                 {col.header}
               </th>
@@ -45,7 +47,7 @@ export default function Table<T extends { id: string }>({ columns, data, emptyMe
                 className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors"
               >
                 {columns.map(col => (
-                  <td key={col.key} className="px-5 py-3.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                  <td key={col.key} className={`px-5 py-3.5 text-slate-700 dark:text-slate-300 whitespace-nowrap ${col.className ?? ''}`}>
                     {col.render
                       ? col.render(row)
                       : String((row as Record<string, unknown>)[col.key] ?? '')}

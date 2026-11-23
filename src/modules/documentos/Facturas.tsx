@@ -626,7 +626,7 @@ export default function FacturasPage() {
 
   const columns: Column<Factura>[] = [
     { key: 'numero', header: 'N° Factura', render: r => <span className="font-mono text-xs font-medium">{r.numero}</span> },
-    { key: 'fecha', header: 'Fecha' },
+    { key: 'fecha', header: 'Fecha', className: 'hidden md:table-cell' },
     { key: 'clienteId', header: 'Cliente', render: r => getClienteNombre(r.clienteId) },
     {
       key: 'total', header: 'Total',
@@ -950,7 +950,7 @@ export default function FacturasPage() {
         action={<Button icon={<Plus size={16} />} onClick={() => { setView('new'); setStep(1); }}>Nueva Factura</Button>}
       />
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        <div className="col-span-2 xl:col-span-1"><StatCard label="Total emitido" value={totalEmitido} icon={<Wallet size={20} />} tone="blue" /></div>
+        <StatCard label="Total emitido" value={totalEmitido} icon={<Wallet size={20} />} tone="blue" />
         <StatCard label="Emitidas" value={emitidas.length} icon={<CheckCircle size={20} />} tone="green" />
         <StatCard label="Borradores" value={borradores} icon={<FileClock size={20} />} tone="amber" />
         <StatCard label="Anuladas" value={anuladas} icon={<Ban size={20} />} tone="rose" />

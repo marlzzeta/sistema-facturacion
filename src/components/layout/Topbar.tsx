@@ -60,7 +60,7 @@ export default function Topbar({ currentPage, usuarioActual: usuarioProp }: Topb
           onClick={toggleTema}
           title={temaOscuro ? 'Modo claro' : 'Modo oscuro'}
           aria-label={temaOscuro ? 'Activar modo claro' : 'Activar modo oscuro'}
-          className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 shadow-sm transition-colors"
+          className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           {temaOscuro ? <Sun size={18} /> : <Moon size={18} />}
         </button>
@@ -82,7 +82,7 @@ export default function Topbar({ currentPage, usuarioActual: usuarioProp }: Topb
           onClick={logout}
           title="Cerrar sesión"
           aria-label="Cerrar sesión"
-          className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 shadow-sm text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+          className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 shadow-sm text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           <LogOut size={18} />
         </button>

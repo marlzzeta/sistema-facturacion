@@ -104,7 +104,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           aria-label={collapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
           title={collapsed ? 'Expandir menú' : 'Contraer menú'}
           className={[
-            'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hidden md:flex items-center justify-center rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700',
+            'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hidden md:flex items-center justify-center rounded-lg p-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 hover:bg-slate-100 dark:hover:bg-slate-700',
             collapsed ? 'md:mx-auto' : 'ml-auto',
           ].join(' ')}
           onClick={() => setCollapsed(c => !c)}
@@ -122,7 +122,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
                 type="button"
                 onClick={() => toggleSection(section.title)}
                 aria-expanded={!!openSections[section.title]}
-                className="w-full flex items-center gap-1 px-3 py-2 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider hover:text-slate-600 dark:hover:text-slate-300"
+                className="w-full flex items-center gap-1 px-3 py-2.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-600 dark:hover:text-slate-300"
               >
                 {openSections[section.title] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 {section.title}
@@ -136,7 +136,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
                 title={collapsed ? item.label : undefined}
                 aria-current={currentPage === item.key ? 'page' : undefined}
                 className={[
-                  'w-full flex items-center gap-3 px-3 py-2.5 mb-0.5 rounded-xl text-sm transition-all',
+                  'w-full flex items-center gap-3 px-3 py-2.5 mb-0.5 rounded-xl text-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
                   collapsed ? 'md:justify-center' : '',
                   currentPage === item.key
                     ? 'bg-blue-600 text-white font-semibold shadow-md shadow-blue-600/30'
@@ -177,8 +177,8 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       {/* Mobile drawer */}
       <aside
         className={[
-          'md:hidden fixed top-0 left-0 h-full z-40 bg-white dark:bg-slate-800 shadow-2xl w-72 max-w-[85vw] pt-12 transition-transform duration-200',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          'md:hidden fixed top-0 left-0 h-full z-40 bg-white dark:bg-slate-800 w-72 max-w-[85vw] pt-12 transition-transform duration-200',
+          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
         ].join(' ')}
       >
         {sidebarContent}
@@ -188,7 +188,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       <aside
         className={[
           'hidden md:flex flex-col bg-white/70 dark:bg-slate-800 border-r border-slate-200/60 dark:border-slate-700 h-dvh sticky top-0 flex-shrink-0 transition-all duration-200',
-          collapsed ? 'w-20' : 'w-64',
+          collapsed ? 'w-20' : 'w-60 lg:w-64',
         ].join(' ')}
       >
         {sidebarContent}

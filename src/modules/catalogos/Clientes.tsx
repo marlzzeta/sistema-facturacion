@@ -63,9 +63,9 @@ export default function ClientesPage() {
   const columns: Column<Cliente>[] = [
     { key: 'nombre', header: 'Nombre' },
     { key: 'rtn', header: 'RTN / DNI', render: r => r.rtn || r.dni },
-    { key: 'telefono', header: 'Teléfono' },
+    { key: 'telefono', header: 'Teléfono', className: 'hidden lg:table-cell' },
     { key: 'condicionPago', header: 'Condición', render: r => <Badge variant={r.condicionPago === 'credito' ? 'warning' : 'default'}>{r.condicionPago === 'credito' ? 'Crédito' : 'Contado'}</Badge> },
-    { key: 'exentoImpuesto', header: 'Exento', render: r => r.exentoImpuesto ? <Badge variant="success">Sí</Badge> : <Badge>No</Badge> },
+    { key: 'exentoImpuesto', header: 'Exento', className: 'hidden lg:table-cell', render: r => r.exentoImpuesto ? <Badge variant="success">Sí</Badge> : <Badge>No</Badge> },
     { key: 'activo', header: 'Estado', render: r => <Badge variant={r.activo ? 'success' : 'danger'}>{r.activo ? 'Activo' : 'Inactivo'}</Badge> },
     {
       key: 'actions', header: 'Acciones',

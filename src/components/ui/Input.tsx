@@ -28,7 +28,7 @@ const baseClass = (size: InputSize = 'default', hasError?: boolean) =>
   [
     'block w-full rounded-xl border bg-white dark:bg-slate-700',
     'text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500',
-    'focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500',
+    'focus:outline-none focus:ring-4 focus:ring-blue-500/25 focus:border-blue-500',
     'transition-colors duration-150',
     hasError
       ? 'border-red-500 dark:border-red-400'
