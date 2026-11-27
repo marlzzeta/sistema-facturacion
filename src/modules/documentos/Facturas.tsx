@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Plus, Eye, Printer, Ban, ChevronLeft, ChevronRight,
   Search, Trash2, AlertCircle, CheckCircle, X, Wallet, FileClock,
+  CalendarDays, Users, CircleDot, Check, SlidersHorizontal,
 } from 'lucide-react';
 import { useStore, uuid } from '../../store';
 import { useAuth } from '../../auth/AuthContext';
@@ -14,9 +15,14 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import StatCard from '../../components/ui/StatCard';
+import FilterDropdown, { FilterOption } from '../../components/ui/FilterDropdown';
 import type { Factura, LineaFactura, PuntoEmision } from '../../types';
 import { fmtMoney, fmtNum } from '../../utils/format';
 import { calculateInvoiceLine, calculateInvoiceTotals } from '../../utils/invoice';
+import {
+  FILTROS_VACIOS, FECHA_PRESETS, ESTADO_LABEL, etiquetaFecha, filtrarFacturas, hayFiltros, rangoFecha,
+} from '../../utils/invoiceFilters';
+import type { FiltrosFactura, EstadoFactura } from '../../utils/invoiceFilters';
 
 // ── ItemSearchInput: searchable combobox for articles and services ────────────
 function ItemSearchInput({
@@ -463,6 +469,8 @@ export default function FacturasPage() {
   const [printFactura, setPrintFactura] = useState<Factura | null>(null);
   const [anularId, setAnularId] = useState<string | null>(null);
   const [searchCliente, setSearchCliente] = useState('');
+  const [filtros, setFiltros] = useState<FiltrosFactura>(FILTROS_VACIOS);
+  const [buscarClienteFiltro, setBuscarClienteFiltro] = useState('');
 
   // Form state
   const [form, setForm] = useState<FormState>({
@@ -945,29 +953,180 @@ export default function FacturasPage() {
   }
 
   // ── List view ─────────────────────────────────────────────────────────────
-  const emitidas = state.facturas.filter(f => f.estado === 'emitido');
-  const borradores = state.facturas.filter(f => f.estado === 'borrador').length;
-  const anuladas = state.facturas.filter(f => f.estado === 'anulado').length;
+  // Las tarjetas siguen los filtros de Fecha y Cliente (no el de Estado, porque
+  // ya muestran un total por estado); la tabla aplica los tres.
+  const baseResumen = filtrarFacturas(state.facturas, filtros, { ignorarEstado: true });
+  const facturasFiltradas = filtros.estado ? baseResumen.filter(f => f.estado === filtros.estado) : baseResumen;
+  const filtrando = hayFiltros(filtros);
+
+  const emitidas = baseResumen.filter(f => f.estado === 'emitido');
+  const borradores = baseResumen.filter(f => f.estado === 'borrador').length;
+  const anuladas = baseResumen.filter(f => f.estado === 'anulado').length;
   const monedasEmitidas = new Set(emitidas.map(f => f.monedaId));
   const monedaUnica = monedasEmitidas.size === 1 ? state.tiposMoneda.find(m => m.id === emitidas[0].monedaId) : undefined;
   const totalEmitido = monedasEmitidas.size > 1
     ? 'Varias monedas'
     : fmtMoney(emitidas.reduce((sum, f) => sum + f.total, 0), monedaUnica?.simbolo ?? state.tiposMoneda[0]?.simbolo);
 
+  // Clientes que tienen al menos una factura, ordenados por nombre.
+  const clientesConFacturas = Array.from(new Set(state.facturas.map(f => f.clienteId)))
+    .map(id => ({ id, nombre: getClienteNombre(id), cantidad: state.facturas.filter(f => f.clienteId === id).length }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const qCliente = buscarClienteFiltro.trim().toLowerCase();
+  const clientesVisibles = qCliente
+    ? clientesConFacturas.filter(c => c.nombre.toLowerCase().includes(qCliente))
+    : clientesConFacturas;
+  const conteoEstado = (e: EstadoFactura) => baseResumen.filter(f => f.estado === e).length;
+  const setFiltro = (patch: Partial<FiltrosFactura>) => setFiltros(prev => ({ ...prev, ...patch }));
+  const check = <Check size={15} className="shrink-0" />;
+
   return (
     <div>
       <PageHeader
         title="Facturas"
-        subtitle={`${state.facturas.length} factura(s) registrada(s)`}
+        subtitle={filtrando
+          ? `Mostrando ${facturasFiltradas.length} de ${state.facturas.length} factura(s)`
+          : `${state.facturas.length} factura(s) registrada(s)`}
         action={<Button icon={<Plus size={16} />} onClick={() => { setView('new'); setStep(1); }}>Nueva Factura</Button>}
       />
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-5">
         <StatCard label="Total emitido" value={totalEmitido} icon={<Wallet size={20} />} tone="blue" />
         <StatCard label="Emitidas" value={emitidas.length} icon={<CheckCircle size={20} />} tone="green" />
         <StatCard label="Borradores" value={borradores} icon={<FileClock size={20} />} tone="amber" />
         <StatCard label="Anuladas" value={anuladas} icon={<Ban size={20} />} tone="rose" />
       </div>
-      <Table columns={columns} data={state.facturas} emptyMessage="No hay facturas. Haga clic en 'Nueva Factura' para comenzar." />
+
+      {/* Filtros */}
+      {/* En móvil la fila se desplaza horizontalmente para que los filtros activos se lean completos. */}
+      <div className="mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 flex items-center gap-2 sm:gap-3 overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <span className="hidden sm:inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 mr-1">
+          <SlidersHorizontal size={15} /> Filtrar
+        </span>
+        <div className="flex shrink-0 gap-2 sm:gap-3">
+          <FilterDropdown
+            label="Fecha"
+            icon={<CalendarDays size={15} />}
+            active={rangoFecha(filtros) !== null}
+            valueLabel={etiquetaFecha(filtros)}
+            onClear={() => setFiltro({ fecha: 'todas', desde: '', hasta: '' })}
+          >
+            {close => (
+              <div className="space-y-0.5">
+                {FECHA_PRESETS.filter(p => p.value !== 'rango').map(p => (
+                  <FilterOption key={p.value} selected={filtros.fecha === p.value}
+                    onClick={() => { setFiltro({ fecha: p.value, desde: '', hasta: '' }); close(); }}
+                    trailing={filtros.fecha === p.value ? check : undefined}>
+                    {p.label}
+                  </FilterOption>
+                ))}
+                <div className="mt-2 border-t border-slate-100 dark:border-slate-700 pt-3 px-1 sm:px-2 pb-1">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Rango personalizado</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['desde', 'hasta'] as const).map(k => (
+                      <label key={k} className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        {k === 'desde' ? 'Desde' : 'Hasta'}
+                        <input
+                          type="date"
+                          value={filtros.fecha === 'rango' ? filtros[k] : ''}
+                          onChange={e => setFiltro({ fecha: 'rango', ...(filtros.fecha === 'rango' ? {} : { desde: '', hasta: '' }), [k]: e.target.value })}
+                          className="w-full min-w-0 appearance-none rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </FilterDropdown>
+
+          <FilterDropdown
+            label="Cliente"
+            icon={<Users size={15} />}
+            active={filtros.clienteId !== ''}
+            valueLabel={filtros.clienteId ? getClienteNombre(filtros.clienteId) : undefined}
+            onClear={() => setFiltro({ clienteId: '' })}
+          >
+            {close => (
+              <div>
+                <div className="mb-2 flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-blue-500">
+                  <Search size={14} className="shrink-0 text-slate-400" />
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Buscar cliente…"
+                    value={buscarClienteFiltro}
+                    onChange={e => setBuscarClienteFiltro(e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                  />
+                </div>
+                <div className="max-h-64 sm:max-h-60 overflow-y-auto space-y-0.5">
+                  <FilterOption selected={filtros.clienteId === ''}
+                    onClick={() => { setFiltro({ clienteId: '' }); setBuscarClienteFiltro(''); close(); }}
+                    trailing={filtros.clienteId === '' ? check : undefined}>
+                    Todos los clientes
+                  </FilterOption>
+                  {clientesVisibles.map(c => (
+                    <FilterOption key={c.id} selected={filtros.clienteId === c.id}
+                      onClick={() => { setFiltro({ clienteId: c.id }); setBuscarClienteFiltro(''); close(); }}
+                      trailing={filtros.clienteId === c.id ? check : <span className="shrink-0 text-xs text-slate-400">{c.cantidad}</span>}>
+                      {c.nombre}
+                    </FilterOption>
+                  ))}
+                  {clientesVisibles.length === 0 && (
+                    <p className="px-3 py-4 text-center text-sm text-slate-400">Sin resultados</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </FilterDropdown>
+
+          <FilterDropdown
+            label="Estado"
+            icon={<CircleDot size={15} />}
+            align="right"
+            active={filtros.estado !== ''}
+            valueLabel={filtros.estado ? ESTADO_LABEL[filtros.estado] : undefined}
+            onClear={() => setFiltro({ estado: '' })}
+          >
+            {close => {
+              const dot: Record<EstadoFactura, string> = { emitido: 'bg-emerald-500', borrador: 'bg-amber-500', anulado: 'bg-rose-500' };
+              return (
+                <div className="space-y-0.5">
+                  <FilterOption selected={filtros.estado === ''}
+                    onClick={() => { setFiltro({ estado: '' }); close(); }}
+                    trailing={filtros.estado === '' ? check : undefined}>
+                    Todos los estados
+                  </FilterOption>
+                  {(Object.keys(ESTADO_LABEL) as EstadoFactura[]).map(e => (
+                    <FilterOption key={e} selected={filtros.estado === e}
+                      onClick={() => { setFiltro({ estado: e }); close(); }}
+                      trailing={filtros.estado === e ? check : <span className="shrink-0 text-xs text-slate-400">{conteoEstado(e)}</span>}>
+                      <span className="inline-flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${dot[e]}`} />{ESTADO_LABEL[e]}</span>
+                    </FilterOption>
+                  ))}
+                </div>
+              );
+            }}
+          </FilterDropdown>
+        </div>
+        {filtrando && (
+          <button
+            type="button"
+            onClick={() => { setFiltros(FILTROS_VACIOS); setBuscarClienteFiltro(''); }}
+            className="shrink-0 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 sm:ml-1"
+          >
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+
+      <Table
+        columns={columns}
+        data={facturasFiltradas}
+        emptyMessage={filtrando
+          ? 'No hay facturas que coincidan con los filtros.'
+          : "No hay facturas. Haga clic en 'Nueva Factura' para comenzar."}
+      />
 
       {/* Print modal */}
       {printFactura && <PrintModal factura={printFactura} onClose={() => setPrintFactura(null)} />}
