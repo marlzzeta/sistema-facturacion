@@ -152,6 +152,18 @@ describe('backend HTTP foundation', () => {
     expect(stale.statusCode).toBe(409);
   });
 
+  it('rejects repeated product or service codes in the workspace', async () => {
+    const loaded = await app.inject({ method: 'GET', url: '/api/v1/workspace', headers: { cookie } });
+    const { data, version } = loaded.json() as { data: Record<string, unknown[]>; version: number };
+    const withCodes = { ...data, articulos: [{ id: 'a1', codigo: 'SRV-01', descripcion: 'Laptop' }], servicios: [{ id: 's1', codigo: 'SRV-02', descripcion: 'Web' }] };
+    const ok = await app.inject({ method: 'PUT', url: '/api/v1/workspace', headers: { cookie, 'x-csrf-token': csrf }, payload: { data: withCodes, version } });
+    expect(ok.statusCode).toBe(200);
+    const repeated = { ...withCodes, servicios: [...withCodes.servicios, { id: 's2', codigo: ' srv-01 ', descripcion: 'Otro' }] };
+    const rejected = await app.inject({ method: 'PUT', url: '/api/v1/workspace', headers: { cookie, 'x-csrf-token': csrf }, payload: { data: repeated, version: ok.json().version } });
+    expect(rejected.statusCode).toBe(422);
+    expect(rejected.json().error.code).toBe('DUPLICATE_CODE');
+  });
+
   it('persists and cancels invoices using the server id', async () => {
     const clients = await app.inject({ method: 'GET', url: '/api/v1/clients', headers: { cookie } });
     const clienteId = clients.json().data[0].id as string;

@@ -11,6 +11,7 @@ import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import type { Articulo } from '../../types';
 import { fmtMoney } from '../../utils/format';
+import { findCodigoDuplicado, mensajeCodigoDuplicado } from '../../utils/catalog';
 
 type FormData = Omit<Articulo, 'id' | 'tipo'>;
 const empty: FormData = { codigo: '', descripcion: '', precio: 0, stock: 0, tipoImpuestoId: '', activo: true };
@@ -28,11 +29,14 @@ export default function ArticulosPage() {
 
   const handleSave = () => {
     if (!form.codigo.trim() || !form.descripcion.trim()) { toast.error('Código y descripción son requeridos'); return; }
+    const duplicado = findCodigoDuplicado(form.codigo, state.articulos, state.servicios, editing?.id);
+    if (duplicado) { toast.error(mensajeCodigoDuplicado(form.codigo, duplicado)); return; }
+    const datos = { ...form, codigo: form.codigo.trim() };
     if (editing) {
-      dispatch({ type: 'UPDATE_ARTICULO', payload: { ...editing, ...form } });
+      dispatch({ type: 'UPDATE_ARTICULO', payload: { ...editing, ...datos } });
       toast.success('Artículo actualizado');
     } else {
-      dispatch({ type: 'ADD_ARTICULO', payload: { id: uuid(), tipo: 'articulo', ...form } });
+      dispatch({ type: 'ADD_ARTICULO', payload: { id: uuid(), tipo: 'articulo', ...datos } });
       toast.success('Artículo creado');
     }
     setModalOpen(false);
