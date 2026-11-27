@@ -179,14 +179,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSyncError(null);
           return;
         }
-        if (response.status === 409) {
+        if (response.status === 409 || response.status === 422) {
+          let message = 'La información cambió en otra sesión; se cargó la versión más reciente.';
+          if (response.status === 422) {
+            const error = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+            message = `${error?.error?.message ?? 'Los cambios no son válidos.'} Se cargó la versión guardada.`;
+          }
           const latest = await fetch(`${API_BASE}/workspace`, { credentials: 'include' });
           if (latest.ok) {
             const body = await latest.json() as { data: WorkspaceState; version: number };
             workspaceVersionRef.current = body.version;
             lastWorkspaceRef.current = JSON.stringify(body.data);
             dispatch({ type: 'SET_WORKSPACE', payload: body.data });
-            setSyncError('La información cambió en otra sesión; se cargó la versión más reciente.');
+            setSyncError(message);
           }
           return;
         }

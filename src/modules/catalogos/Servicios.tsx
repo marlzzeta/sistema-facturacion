@@ -11,6 +11,7 @@ import Input from '../../components/ui/Input';
 import Badge from '../../components/ui/Badge';
 import type { Servicio } from '../../types';
 import { fmtMoney } from '../../utils/format';
+import { findCodigoDuplicado, mensajeCodigoDuplicado } from '../../utils/catalog';
 
 type FormData = Omit<Servicio, 'id' | 'tipo'>;
 const empty: FormData = { codigo: '', descripcion: '', precio: 0, tipoImpuestoId: '', activo: true };
@@ -28,11 +29,14 @@ export default function ServiciosPage() {
 
   const handleSave = () => {
     if (!form.codigo.trim() || !form.descripcion.trim()) { toast.error('Código y descripción son requeridos'); return; }
+    const duplicado = findCodigoDuplicado(form.codigo, state.articulos, state.servicios, editing?.id);
+    if (duplicado) { toast.error(mensajeCodigoDuplicado(form.codigo, duplicado)); return; }
+    const datos = { ...form, codigo: form.codigo.trim() };
     if (editing) {
-      dispatch({ type: 'UPDATE_SERVICIO', payload: { ...editing, ...form } });
+      dispatch({ type: 'UPDATE_SERVICIO', payload: { ...editing, ...datos } });
       toast.success('Servicio actualizado');
     } else {
-      dispatch({ type: 'ADD_SERVICIO', payload: { id: uuid(), tipo: 'servicio', ...form } });
+      dispatch({ type: 'ADD_SERVICIO', payload: { id: uuid(), tipo: 'servicio', ...datos } });
       toast.success('Servicio creado');
     }
     setModalOpen(false);

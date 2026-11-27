@@ -285,10 +285,10 @@ function InvoiceSheet({ factura, tipo, emisor }: { factura: Factura; tipo: 'ORIG
           {factura.lineas.map(l => {
             const descMonto = l.cantidad * l.precio - l.subtotal;
             return (
-              <tr key={l.id} style={{ borderBottom: '0.5px solid #ddd' }}>
+              <tr key={l.id}>
                 <td style={{ padding: '4px 3px', verticalAlign: 'top' }}>
                   <div>{l.descripcion}</div>
-                  {l.detalle && <div style={{ fontSize: '8px', color: '#555', marginTop: '2px', whiteSpace: 'pre-wrap' }}>{l.detalle}</div>}
+                  {l.detalle?.trim() && <div style={{ marginTop: '2px', whiteSpace: 'pre-wrap' }}>{l.detalle.trim()}</div>}
                 </td>
                 <td style={{ padding: '4px 3px', textAlign: 'center', verticalAlign: 'top' }}>{l.cantidad}</td>
                 <td style={{ padding: '4px 3px', textAlign: 'right', verticalAlign: 'top' }}>{sym} {fmtNum(descMonto)}</td>
@@ -329,7 +329,7 @@ function InvoiceSheet({ factura, tipo, emisor }: { factura: Factura; tipo: 'ORIG
             { label: 'IMPUESTO 18%', val: imp18?.monto ?? 0 },
             { label: `RETENCION${retencion ? ` (${retencion.nombre})` : ''}`, val: factura.retencionMonto },
           ].map(row => (
-            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '0.5px solid #ccc', padding: '2px 0' }}>
+            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
               <span>{row.label}</span>
               <span>{sym} {fmtNum(row.val)}</span>
             </div>
@@ -560,6 +560,9 @@ export default function FacturasPage() {
     setAddingLine(false);
   };
 
+  const updateLineDetalle = (id: string, detalle: string) =>
+    setForm(p => ({ ...p, lineas: p.lineas.map(l => (l.id === id ? { ...l, detalle } : l)) }));
+
   const removeLine = (id: string) => setForm(p => ({ ...p, lineas: p.lineas.filter(l => l.id !== id) }));
 
   // ── Emit factura ──────────────────────────────────────────────────────────
@@ -783,10 +786,11 @@ export default function FacturasPage() {
                     <Input as="input" type="number" label="Descuento (%)" value={lineForm.descuento} min={0} max={100}
                       onChange={e => setLineForm(p => ({ ...p, descuento: Number(e.target.value) }))} />
                     <div className="sm:col-span-2 flex flex-col gap-1">
-                      <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Detalle adicional</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Descripción adicional</label>
                       <textarea
                         rows={2}
-                        placeholder="Descripción adicional del producto o servicio (opcional)…"
+                        maxLength={1000}
+                        placeholder="Información extra que aparecerá debajo de la descripción (opcional)…"
                         value={lineForm.detalle}
                         onChange={e => setLineForm(p => ({ ...p, detalle: e.target.value }))}
                         className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -835,7 +839,15 @@ export default function FacturasPage() {
                         <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30">
                           <td className="px-3 py-2 text-gray-700 dark:text-slate-300">
                             <div>{l.descripcion}</div>
-                            {l.detalle && <div className="text-gray-400 dark:text-slate-500 text-xs mt-0.5 whitespace-pre-wrap">{l.detalle}</div>}
+                            <textarea
+                              rows={Math.min(6, Math.max(1, (l.detalle ?? '').split('\n').length))}
+                              maxLength={1000}
+                              aria-label={`Descripción adicional de ${l.descripcion}`}
+                              placeholder="Descripción adicional (opcional)"
+                              value={l.detalle ?? ''}
+                              onChange={e => updateLineDetalle(l.id, e.target.value)}
+                              className="mt-1 w-full min-w-[12rem] rounded-md border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                            />
                           </td>
                           <td className="px-3 py-2 text-right">{l.cantidad}</td>
                           <td className="px-3 py-2 text-right">{fmtNum(l.precio)}</td>
