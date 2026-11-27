@@ -757,13 +757,13 @@ export default function FacturasPage() {
                 )}
               </div>
               {selectedCliente && (
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-xs space-y-1">
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-xs space-y-1 dark:text-slate-200">
                   <p className="font-semibold text-green-800 dark:text-green-400">Cliente seleccionado: {selectedCliente.nombre}</p>
                   {selectedCliente.rtn && <p>RTN: {selectedCliente.rtn}</p>}
                   {selectedCliente.direccion && <p>Dirección: {selectedCliente.direccion}</p>}
                   {selectedCliente.correo && <p>Correo: {selectedCliente.correo}</p>}
                   {clienteRetencion && <p>Retención: {clienteRetencion.nombre} ({clienteRetencion.porcentaje}%)</p>}
-                  {selectedCliente.exentoImpuesto && <p className="text-green-700 font-medium">✓ Este cliente está exento de impuestos</p>}
+                  {selectedCliente.exentoImpuesto && <p className="text-green-700 dark:text-green-400 font-medium">✓ Este cliente está exento de impuestos</p>}
                 </div>
               )}
             </div>
@@ -806,14 +806,14 @@ export default function FacturasPage() {
                     </div>
 
                     {lineForm.itemId && (
-                      <div className="sm:col-span-2 text-xs bg-white dark:bg-slate-800 p-2 rounded border border-gray-200 dark:border-slate-700">
+                      <div className="sm:col-span-2 text-xs bg-white dark:bg-slate-800 dark:text-slate-200 p-2 rounded border border-gray-200 dark:border-slate-700">
                         {(() => {
                           const l = calcLine();
                           return (
                             <div className="grid grid-cols-3 gap-2 text-center">
                               <div><p className="text-gray-400">Subtotal</p><p className="font-semibold">{fmtMoney(l.subtotal, sym)}</p></div>
                               <div><p className="text-gray-400">Impuesto</p><p className="font-semibold">{fmtMoney(l.impuesto, sym)}</p></div>
-                              <div><p className="text-gray-400">Total</p><p className="font-bold text-blue-600">{fmtMoney(l.total, sym)}</p></div>
+                              <div><p className="text-gray-400">Total</p><p className="font-bold text-blue-600 dark:text-blue-400">{fmtMoney(l.total, sym)}</p></div>
                             </div>
                           );
                         })()}
@@ -842,7 +842,7 @@ export default function FacturasPage() {
                         <th className="px-3 py-2"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700 dark:text-slate-200">
                       {form.lineas.map(l => (
                         <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30">
                           <td className="px-3 py-2 text-gray-700 dark:text-slate-300">
@@ -891,7 +891,7 @@ export default function FacturasPage() {
                   <span>Subtotal:</span><span>{fmtMoney(subtotal, sym)}</span>
                 </div>
                 {totalDescuentos > 0 && (
-                  <div className="flex justify-between text-red-600">
+                  <div className="flex justify-between text-red-600 dark:text-red-400">
                     <span>Total Descuentos:</span><span>- {fmtMoney(totalDescuentos, sym)}</span>
                   </div>
                 )}
@@ -902,14 +902,14 @@ export default function FacturasPage() {
                   </div>
                 ))}
                 {retencionMonto > 0 && (
-                  <div className="flex justify-between text-orange-600">
+                  <div className="flex justify-between text-orange-600 dark:text-orange-400">
                     <span>Retención ({clienteRetencion?.nombre}):</span>
                     <span>- {fmtMoney(retencionMonto, sym)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-xl font-bold text-gray-900 dark:text-slate-100 pt-2 border-t border-gray-300 dark:border-slate-600">
                   <span>TOTAL A PAGAR:</span>
-                  <span className="text-blue-600">{fmtMoney(total, sym)}</span>
+                  <span className="text-blue-600 dark:text-blue-400">{fmtMoney(total, sym)}</span>
                 </div>
               </div>
 
